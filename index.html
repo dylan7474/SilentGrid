@@ -33,17 +33,37 @@
 
     /* CRT Scanline & Grain overlay */
     .crt-overlay {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), 
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%), 
                   linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
       background-size: 100% 3px, 6px 100%;
       pointer-events: none;
     }
 
-    /* Skeuomorphic riveted WW2 metal border */
-    .steel-panel {
-      background: radial-gradient(circle at 50% 0%, #1a2733 0%, #0d161e 100%);
-      border: 2px solid #2e4457;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.8);
+    /* ===== HUD design tokens (target art: dark gunmetal, amber + radar green) ===== */
+    :root {
+      --amber: #f5a524;
+      --amber-dim: #8a5a12;
+      --green: #3ddc84;
+      --red: #ff5a52;
+      --cream: #ece7da;
+      --muted: #8fa0ad;
+      --plate-top: #1f2a34;
+      --plate-bot: #0e151b;
+      --edge: #3b4b59;
+    }
+    .hud { font-family: 'Teko', 'Share Tech Mono', sans-serif; letter-spacing: 0.04em; color: var(--cream); }
+    .hud .lbl { color: var(--muted); font-size: 15px; text-transform: uppercase; }
+    .hud .val { font-size: 22px; font-weight: 700; text-transform: uppercase; line-height: 1; }
+    .amber { color: var(--amber); }
+
+    /* Gunmetal plate with bevel and brushed grain */
+    .plate, .steel-panel {
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, var(--plate-top), var(--plate-bot));
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.6);
       position: relative;
     }
 
@@ -52,9 +72,74 @@
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background: #475569;
+      background: #55687a;
       box-shadow: inset 1px 1px 1px rgba(255, 255, 255, 0.4), 1px 1px 2px rgba(0, 0, 0, 0.8);
     }
+
+    /* Top bar */
+    .topbar { background: linear-gradient(180deg, #16212a, #0a1015); border-bottom: 2px solid #2a3b48; }
+    .emblem { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+      background: radial-gradient(circle at 50% 35%, #2b2316, #0e0c08); border: 3px solid var(--amber);
+      box-shadow: 0 0 14px rgba(245,165,36,0.45), inset 0 0 8px rgba(0,0,0,0.8); color: var(--amber); font-size: 28px; }
+    .ap-bar { display: flex; gap: 4px; padding: 3px 6px; background: rgba(0,0,0,0.55); border-radius: 3px; border: 1px solid #3a2f17; }
+    .ap-tick { width: 7px; height: 20px; border-radius: 1px; background: #2a3138; }
+    .ap-tick.on { background: var(--amber); box-shadow: 0 0 8px rgba(245,165,36,0.7); }
+    .meter { width: 120px; height: 10px; background: #05080b; border: 1px solid #3a4a58; border-radius: 2px; overflow: hidden; }
+    .meter > i { display: block; height: 100%; transition: width .3s, background .3s; }
+    .iconbtn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 17px; text-transform: uppercase;
+      background: linear-gradient(180deg, #212e39, #101820); border: 1px solid var(--edge); border-radius: 5px; color: var(--cream); cursor: pointer; }
+    .iconbtn:hover { border-color: var(--amber); }
+
+    /* Command bridge */
+    .bridge-title { font-size: 24px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.08em; line-height: 1; padding: 3px 24px 4px;
+      background: linear-gradient(180deg, #232f3a, #0f161c); border: 1px solid var(--edge); border-bottom: none; border-radius: 8px 8px 0 0; }
+    .led { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); display: inline-block; }
+    .led.off { background: #3a2a10; box-shadow: none; }
+    .unit-card { width: 150px; padding: 3px 9px; background: rgba(0,0,0,0.45); border: 1px solid var(--edge); border-radius: 5px; }
+    .hullbar { height: 10px; background: #05080b; border: 1px solid #3a4a58; border-radius: 2px; overflow: hidden; }
+    .cmd { position: relative; width: 76px; height: 84px; padding: 13px 2px 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+      background: linear-gradient(180deg, #212d38, #0f161d); border: 1px solid var(--edge); border-radius: 5px; color: var(--cream); cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 6px rgba(0,0,0,0.6); text-transform: uppercase; transition: border-color .15s, transform .08s; }
+    .cmd i { font-size: 30px; line-height: 1; }
+    .cmd .nm { font-size: 16px; white-space: nowrap; font-weight: 600; line-height: 1; margin-top: 4px; }
+    .cmd .ap { font-size: 14px; color: var(--muted); line-height: 1.1; }
+    .cmd:hover { border-color: #7d93a5; }
+    .cmd:active { transform: scale(0.96); }
+    .cmd[data-low="true"] { opacity: 0.5; }
+    .cmd::after { position: absolute; top: 2px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; line-height: 1; }
+    .cmd[data-active="true"] { border-color: var(--green); box-shadow: 0 0 10px rgba(61,220,132,0.35), inset 0 0 0 1px rgba(61,220,132,0.4); }
+    .cmd[data-active="true"]::after { content: "\2713 CURRENT"; color: var(--green); }
+    .cmd[data-armed="true"] { border-color: var(--amber); background: linear-gradient(180deg, #3a2c12, #17110a); box-shadow: 0 0 14px rgba(245,165,36,0.55), inset 0 0 0 1px rgba(245,165,36,0.55); }
+    .cmd[data-armed="true"] i, .cmd[data-armed="true"] .nm { color: var(--amber); }
+    .cmd[data-armed="true"]::after { content: "\25B6 ARMED"; color: var(--amber); }
+    .cmd[data-ready="true"] { border-color: var(--amber); animation: readyPulse 1.2s ease-in-out infinite; }
+    .cmd[data-ready="true"]::after { content: "READY"; color: var(--amber); }
+    .cmd[data-ready="false"] { opacity: 0.4; cursor: not-allowed; }
+    @keyframes readyPulse { 50% { box-shadow: 0 0 14px rgba(245,165,36,0.7); } }
+    .cmd-sep { width: 1px; align-self: stretch; margin: 4px 3px; background: linear-gradient(180deg, transparent, #3b4b59, transparent); }
+
+    /* Log */
+    .log-line { font-size: 17px; line-height: 1.15; text-transform: uppercase; padding: 1px 0; }
+    .log-line b { color: var(--amber); font-weight: 600; }
+
+    /* Radar bezel */
+    .radar-bezel { width: 128px; height: 128px; border-radius: 50%; padding: 7px; position: relative;
+      background: radial-gradient(circle at 35% 30%, #3a4a58, #101820); border: 2px solid #4a5d6d; box-shadow: 0 4px 14px rgba(0,0,0,0.7), inset 0 0 0 2px #0a0f14; }
+    .radar-screen { width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden;
+      background: radial-gradient(circle, #04180e 0%, #020d08 100%); border: 1px solid #0b3a22; box-shadow: inset 0 0 18px rgba(0,0,0,0.9); }
+    .radar-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(61,220,132,0.28); inset: 0; }
+    .radar-sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(61,220,132,0) 0deg, rgba(61,220,132,0) 300deg, rgba(61,220,132,0.5) 360deg); animation: radar-sweep 3.5s linear infinite; }
+    .endturn { width: 168px; height: 60px; font-size: 28px; white-space: nowrap; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber);
+      background: linear-gradient(180deg, #2c2111, #120d06); border: 3px solid var(--amber); border-radius: 8px; box-shadow: 0 0 16px rgba(245,165,36,0.45), inset 0 0 12px rgba(245,165,36,0.18);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform .08s, background .15s; }
+    .endturn:hover { background: linear-gradient(180deg, #4a3612, #1b1308); }
+    .endturn:active { transform: scale(0.96); }
+
+    /* World tags */
+    .world-tag { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none; z-index: 15;
+      font-family: 'Teko', sans-serif; font-size: 17px; letter-spacing: 0.05em; text-transform: uppercase; color: #fff;
+      background: rgba(8,12,16,0.82); border: 1px solid rgba(255,255,255,0.35); padding: 0 8px; line-height: 1.25; }
+    .world-tag::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px; background: rgba(255,255,255,0.45); }
 
     /* Radar sweep animation */
     @keyframes radar-sweep {
@@ -91,79 +176,60 @@
   <!-- CRT Screen Overlay for cinematic look -->
   <div class="crt-overlay fixed inset-0 z-40 pointer-events-none"></div>
 
-  <!-- TOP COMMAND BAR (Graphic 4 Style) -->
-  <header class="relative z-30 flex items-center justify-between px-3 sm:px-6 py-2 border-b border-slate-800 bg-[#071118]/95 backdrop-blur-md text-xs">
-    <div class="flex items-center space-x-3 sm:space-x-5">
-      <div class="flex items-center space-x-2">
-        <i class="ph ph-anchor-simple text-amber-400 text-lg"></i>
-        <div>
-          <div class="text-[9px] uppercase tracking-widest text-slate-400">FACTION</div>
-          <div class="font-bold tracking-wider text-amber-400 text-sm" id="factionDisplay">AXIS (WOLFPACK)</div>
-        </div>
+  <!-- TOP COMMAND BAR -->
+  <header class="hud topbar relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+    <div class="flex items-center gap-2">
+      <div class="plate flex items-center gap-2 px-3 py-1">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M9 2h6l1 6 6 1v6l-6 1-1 6H9l-1-6-6-1V9l6-1z" fill="#ece7da" stroke="#05080b" stroke-width="1.2"/></svg>
+        <span class="lbl">PLAYER:</span><span class="val amber" id="factionDisplay">AXIS (WOLFPACK)</span>
       </div>
-
-      <div class="h-6 w-[1px] bg-slate-800"></div>
-
-      <div>
-        <div class="text-[9px] uppercase tracking-widest text-slate-400">PATROL TURN</div>
-        <div class="font-bold text-slate-100"><span id="turnDisplay" class="text-amber-400 font-bold text-sm">1</span> / 35</div>
-      </div>
-
-      <div class="h-6 w-[1px] bg-slate-800 hidden md:block"></div>
-
-      <div class="hidden md:block">
-        <div class="text-[9px] uppercase tracking-widest text-slate-400">WEATHER / SEA</div>
-        <div class="font-bold text-cyan-300 flex items-center gap-1">
-          <i class="ph ph-cloud-rain"></i> FORCE 7 STORM
-        </div>
+      <div class="plate flex items-baseline gap-2 px-4 py-1">
+        <span class="lbl">TURN</span><span class="val"><span id="turnDisplay">1</span><span style="color:var(--muted)">/<span id="turnMax">35</span></span></span>
       </div>
     </div>
 
-    <!-- Center Action Points Segmented Pip Display -->
-    <div class="flex flex-col items-center">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1 mb-0.5">
-        <i class="ph ph-lightning"></i> ACTION POINTS: <span id="apCounter" class="text-white text-xs">10/10 AP</span>
-      </div>
-      <div id="apSegments" class="flex space-x-1 bg-black/60 p-1 rounded border border-amber-500/30">
-        <!-- Dynamic pip bars -->
+    <div class="flex items-center gap-2">
+      <div class="emblem"><i class="ph ph-timer"></i></div>
+      <div class="plate px-4 py-1 flex flex-col items-center">
+        <div class="lbl" style="font-size:16px">ACTION POINTS: <span id="apCounter" class="amber" style="font-size:20px;font-weight:700">10/10 AP</span></div>
+        <div id="apSegments" class="ap-bar"></div>
       </div>
     </div>
 
-    <!-- Right Vitals: Battery, O2 & Quick Controls -->
-    <div class="flex items-center space-x-3 sm:space-x-4">
-      <div class="hidden lg:flex items-center space-x-4 bg-black/50 px-3 py-1 rounded border border-slate-800 text-xs">
-        <div>
-          <span class="text-slate-400">BATTERY:</span>
-          <span class="font-bold text-cyan-400 ml-1" id="batteryDisplay">100%</span>
-        </div>
-        <div>
-          <span class="text-slate-400">O2:</span>
-          <span class="font-bold text-emerald-400 ml-1" id="o2Display">100%</span>
-        </div>
-        <div>
-          <span class="text-slate-400">SCRAP:</span>
-          <span class="font-bold text-amber-400 ml-1" id="scrapDisplay">20</span>
-        </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="plate px-3 py-1 hidden lg:block" style="min-width:150px">
+        <div class="flex justify-between gap-2"><span class="lbl">BATTERY:</span><span class="val" id="batteryDisplay" style="font-size:20px">100%</span></div>
+        <div class="meter" style="width:100%"><i id="batteryBar" style="width:100%;background:var(--amber)"></i></div>
       </div>
-
-      <button id="audioToggleBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300 text-xs flex items-center gap-1.5 transition">
-        <i class="ph ph-speaker-high" id="audioIcon"></i>
-        <span class="hidden sm:inline">SFX</span>
-      </button>
-
-      <button id="briefingBtn" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-cyan-300 text-xs flex items-center gap-1 transition">
-        <i class="ph ph-info"></i>
-        <span class="hidden sm:inline">ORDERS</span>
-      </button>
+      <div class="plate px-3 py-1 hidden lg:block" style="min-width:150px">
+        <div class="flex justify-between"><span class="lbl">O2:</span><span class="val" id="o2Display" style="font-size:20px">100%</span></div>
+        <div class="meter" style="width:100%"><i id="o2Bar" style="width:100%;background:var(--green)"></i></div>
+      </div>
+      <div class="plate px-3 py-1 hidden xl:flex items-center gap-3">
+        <span><span class="lbl">SCRAP</span> <span class="val amber" id="scrapDisplay">20</span></span>
+        <span><span class="lbl">INTEL</span> <span class="val" id="intelDisplay" style="color:#7dd3fc">20</span></span>
+      </div>
+      <div class="plate px-3 py-1 hidden md:flex items-center gap-2"><i class="ph ph-cloud-rain" style="font-size:26px;color:#9fb4c4"></i><span class="lbl">WEATHER:</span><span class="val">STORM</span></div>
+      <button id="audioToggleBtn" class="iconbtn" title="Sound effects"><i class="ph ph-speaker-high" id="audioIcon"></i><span class="hidden sm:inline">SFX</span></button>
+      <button id="briefingBtn" class="iconbtn" title="Orders"><i class="ph ph-info"></i><span class="hidden sm:inline">ORDERS</span></button>
     </div>
   </header>
 
   <!-- MAIN 3D OCEAN VIEWPORT -->
   <main class="relative flex-1 w-full h-full overflow-hidden">
-    <!-- WebGL Three.js Container -->
     <div id="threeContainer" class="w-full h-full cursor-crosshair"></div>
+    <canvas id="rainCanvas" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index:10"></canvas>
+    <div id="worldTags"></div>
 
-    <!-- Screen HUD Overlay: Hovered Tactical Contact Marker -->
+    <!-- Hydrophone log: translucent, click-through overlay (never blocks the map) -->
+    <section class="hud absolute bottom-3 left-3 z-20 hidden md:block pointer-events-none" style="width:min(380px,32vw)">
+      <div class="lbl flex justify-between px-2" style="font-size:15px;background:rgba(8,12,16,0.7);border:1px solid rgba(59,75,89,0.8);border-bottom:none;border-radius:5px 5px 0 0">
+        <span><i class="ph ph-radio"></i> HYDROPHONE LOG</span><span style="color:var(--green)">&#9679; MONITORING</span>
+      </div>
+      <div id="battleLog" class="px-2 py-1 overflow-hidden" style="height:96px;background:rgba(8,12,16,0.6);border:1px solid rgba(59,75,89,0.8);border-radius:0 0 5px 5px;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)"></div>
+    </section>
+
+    <!-- Hovered tactical contact marker -->
     <div id="targetReticle" class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 hidden z-20">
       <div class="w-16 h-16 rounded-full border border-dashed border-amber-400/80 animate-spin"></div>
       <div class="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/85 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-500/50" id="reticleLabel">
@@ -171,146 +237,71 @@
       </div>
     </div>
 
-    <!-- On-screen Status Toast -->
-    <div id="actionToast" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 border border-amber-500 text-amber-300 px-4 py-1.5 rounded-full shadow-2xl text-xs uppercase font-bold opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2">
-      <i class="ph ph-warning-circle text-base"></i>
+    <!-- Status toast -->
+    <div id="actionToast" class="hud absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 border border-amber-500 text-amber-300 px-4 py-1 rounded-full shadow-2xl text-xl uppercase opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2">
+      <i class="ph ph-warning-circle text-xl"></i>
       <span id="toastMsg">ORDERS CONFIRMED</span>
-    </div>
-
-    <!-- Tactical Hydrophone Log (collapsible on mobile) -->
-    <div class="absolute top-4 left-4 z-20 w-64 bg-slate-950/85 backdrop-blur-md border border-slate-800/80 rounded-lg p-2.5 text-[11px] shadow-2xl hidden md:block">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-1 mb-1.5 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-        <span><i class="ph ph-radio"></i> HYDROPHONE LOG</span>
-        <span class="text-emerald-400 animate-pulse text-[9px]">MONITORING</span>
-      </div>
-      <div id="battleLog" class="h-28 overflow-y-auto space-y-1 text-slate-300 font-mono pr-1"></div>
-    </div>
-
-    <!-- Miniature CRT Sonar Screen (Graphic 4 bottom-right radar widget) -->
-    <div class="absolute bottom-24 right-4 z-20 hidden md:block">
-      <div class="steel-panel p-2 rounded-xl">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center justify-between">
-          <span>PPI RADAR / MINI-MAP</span>
-          <span class="text-emerald-400 text-[8px] animate-pulse">SWEEP</span>
-        </div>
-        <div class="relative w-36 h-36 rounded-full border-2 border-emerald-900 bg-[#02110c] overflow-hidden flex items-center justify-center shadow-inner">
-          <div class="absolute inset-0 rounded-full border border-emerald-500/20 scale-75"></div>
-          <div class="absolute inset-0 rounded-full border border-emerald-500/20 scale-50"></div>
-          <div class="absolute w-full h-[1px] bg-emerald-500/30"></div>
-          <div class="absolute h-full w-[1px] bg-emerald-500/30"></div>
-          <!-- Sweep line -->
-          <div class="absolute inset-0 radar-sweep-line">
-            <div class="w-1/2 h-full bg-gradient-to-r from-transparent to-emerald-400/40 origin-right"></div>
-          </div>
-          <!-- Blips -->
-          <div id="radarBlips" class="absolute inset-0 pointer-events-none"></div>
-          <!-- Center Sub -->
-          <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#38ef7d] z-10"></div>
-        </div>
-      </div>
     </div>
   </main>
 
-  <!-- BOTTOM SKEUOMORPHIC COMMAND BRIDGE (Graphic 4 Cockpit) -->
-  <footer class="relative z-30 steel-panel p-2 sm:p-3 border-t-2 border-slate-700">
-    <!-- Rivet Accents -->
-    <div class="rivet top-1 left-2"></div>
-    <div class="rivet top-1 right-2"></div>
-    <div class="rivet bottom-1 left-2"></div>
-    <div class="rivet bottom-1 right-2"></div>
+  <!-- BOTTOM: LOG | COMMAND BRIDGE | RADAR + END TURN -->
+  <footer class="hud relative z-30 px-2 pb-2 pt-1" style="background:linear-gradient(180deg,#0a1015,#05080b);border-top:2px solid #2a3b48">
+    <div class="flex flex-wrap items-end justify-center gap-3">
 
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      
-      <!-- SUB STATUS & SPEED DIAL -->
-      <div class="flex items-center space-x-3 bg-black/40 px-3 py-1.5 rounded-lg border border-slate-800">
-        <!-- Sub Info & Hull -->
-        <div>
-          <div class="flex items-center gap-1.5 mb-1">
-            <span class="font-extrabold text-sm tracking-wider text-amber-400" id="subModelName">U-96</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 font-bold border border-slate-700" id="subDepthLabel">SURFACED</span>
-          </div>
-          <div class="w-32 bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
-            <div id="hullBar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
-          </div>
-          <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
-            <span>HULL: <span id="hullValue" class="text-white font-bold">100%</span></span>
-            <span>TORP: <span id="torpCount" class="text-amber-400 font-bold">4/4</span></span>
+      <!-- Command bridge -->
+      <section class="flex flex-col items-center" style="flex:0 1 auto">
+        <div class="bridge-title flex items-center gap-3"><span class="led"></span> COMMAND BRIDGE <span class="led"></span></div>
+        <div class="plate w-full p-2" style="border-top-left-radius:0;border-top-right-radius:0;margin-top:-1px">
+          <div class="rivet" style="top:4px;left:5px"></div><div class="rivet" style="top:4px;right:5px"></div>
+          <div class="flex flex-wrap items-center justify-center gap-2">
+
+            <div class="unit-card">
+              <div class="flex items-center justify-between gap-2">
+                <span class="val" id="subModelName" style="font-size:26px">U-96</span>
+                <div class="relative" style="width:34px;height:34px;border-radius:50%;border:2px solid var(--amber-dim);background:#05080b" title="Depth gauge">
+                  <div id="gaugeNeedle" class="gauge-needle absolute bg-amber-400" style="width:2px;height:13px;top:4px;left:calc(50% - 1px)"></div>
+                  <div class="absolute rounded-full bg-slate-300" style="width:5px;height:5px;left:calc(50% - 2.5px);top:calc(50% - 2.5px)"></div>
+                </div>
+              </div>
+              <div class="lbl" id="subDepthLabel" style="font-size:15px;line-height:1">SURFACED</div>
+              <div class="flex justify-between lbl" style="font-size:15px;line-height:1.1"><span>HULL:</span><span id="hullValue" style="color:var(--cream);font-weight:600">100%</span></div>
+              <div class="hullbar"><div id="hullBar" style="height:100%;width:100%;background:var(--green);transition:width .3s"></div></div>
+              <div class="flex justify-between lbl" style="font-size:15px;line-height:1.1"><span>TORPEDOES:</span><span id="torpCount" class="amber" style="font-weight:700">4/4</span></div>
+            </div>
+
+            <div class="flex items-stretch gap-1 flex-wrap justify-center">
+              <button id="btnSurface" class="cmd"><i class="ph ph-arrow-fat-up"></i><span class="nm">SURFACE</span><span class="ap">[-1 AP]</span></button>
+              <button id="btnPeriscope" class="cmd"><i class="ph ph-eye"></i><span class="nm">PERISCOPE</span><span class="ap">[-2 AP]</span></button>
+              <button id="btnDive" class="cmd"><i class="ph ph-arrow-fat-down"></i><span class="nm">DEEP DIVE</span><span class="ap">[-2 AP]</span></button>
+              <div class="cmd-sep"></div>
+              <button id="btnPing" class="cmd"><i class="ph ph-broadcast"></i><span class="nm">PING</span><span class="ap">[-2 AP]</span></button>
+              <button id="btnTorpedo" class="cmd"><i class="ph ph-crosshair"></i><span class="nm">TORPEDO</span><span class="ap" id="costTorpedo">[-3 AP]</span></button>
+              <button id="btnRecon" class="cmd"><i class="ph ph-airplane"></i><span class="nm">RECON</span><span class="ap">[-3 AP]</span></button>
+              <button id="btnAirstrike" class="cmd"><i class="ph ph-bomb"></i><span class="nm">AIRSTRIKE</span><span class="ap" id="costAirstrike">[-4 AP]</span></button>
+              <div class="cmd-sep"></div>
+              <button id="btnSalvage" class="cmd"><i class="ph ph-magnet"></i><span class="nm">SALVAGE</span><span class="ap">[-2 AP]</span></button>
+              <button id="btnTechTree" class="cmd"><i class="ph ph-wrench"></i><span class="nm">UPGRADES</span><span class="ap">&nbsp;</span></button>
+            </div>
           </div>
         </div>
+      </section>
 
-        <!-- Analog Dial (Speed / Dive Depth Gauge) -->
-        <div class="hidden sm:flex flex-col items-center pl-2 border-l border-slate-800">
-          <div class="relative w-11 h-11 rounded-full border-2 border-amber-600/70 bg-slate-950 flex items-center justify-center shadow-inner">
-            <div id="gaugeNeedle" class="gauge-needle absolute w-0.5 h-4 bg-amber-400 top-1.5"></div>
-            <div class="w-1.5 h-1.5 rounded-full bg-slate-300 z-10"></div>
+      <!-- Radar + End turn -->
+      <section class="flex items-center gap-3">
+        <div class="radar-bezel hidden md:block" title="Radar / mini-map">
+          <div class="radar-screen" id="radarScreen">
+            <div class="radar-ring" style="inset:0"></div>
+            <div class="radar-ring" style="inset:25%"></div>
+            <div class="radar-ring" style="inset:42%"></div>
+            <div class="absolute w-full" style="top:50%;height:1px;background:rgba(61,220,132,0.25)"></div>
+            <div class="absolute h-full" style="left:50%;width:1px;background:rgba(61,220,132,0.25)"></div>
+            <div class="radar-sweep"></div>
+            <div id="radarBlips" class="absolute inset-0 pointer-events-none"></div>
+            <div class="absolute rounded-full" style="width:8px;height:8px;left:calc(50% - 4px);top:calc(50% - 4px);background:var(--green);box-shadow:0 0 8px var(--green)"></div>
           </div>
-          <span class="text-[9px] text-slate-400 mt-0.5 font-bold">DEPTH</span>
         </div>
-      </div>
-
-      <!-- DEPTH CONTROL TOGGLES (Surface / Periscope / Dive) -->
-      <div class="flex items-center space-x-1 bg-black/60 p-1 rounded-lg border border-slate-800">
-        <button id="btnSurface" class="px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition bg-emerald-900 text-emerald-200 border border-emerald-500 shadow">
-          <i class="ph ph-arrow-fat-up"></i>
-          <span>SURFACE <span class="text-[10px] opacity-75">[-1 AP]</span></span>
-        </button>
-        <button id="btnPeriscope" class="px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
-          <i class="ph ph-eye"></i>
-          <span>PERISCOPE <span class="text-[10px] opacity-75">[-2 AP]</span></span>
-        </button>
-        <button id="btnDive" class="px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent">
-          <i class="ph ph-arrow-fat-down"></i>
-          <span>DEEP DIVE <span class="text-[10px] opacity-75">[-2 AP]</span></span>
-        </button>
-      </div>
-
-      <!-- TACTICAL ACTION COMMANDS -->
-      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
-        <!-- Active Sonar Ping -->
-        <button id="btnPing" class="px-3 py-2 bg-slate-900 hover:bg-emerald-950/70 border border-emerald-600/60 text-emerald-300 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 shadow">
-          <i class="ph ph-broadcast text-base"></i>
-          <span>ACTIVE PING <span class="text-[10px] text-emerald-400 font-mono">[-2]</span></span>
-        </button>
-
-        <!-- Torpedo Attack -->
-        <button id="btnTorpedo" class="px-3 py-2 bg-slate-900 hover:bg-amber-950/70 border border-amber-600/60 text-amber-300 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 shadow">
-          <i class="ph ph-crosshair text-base"></i>
-          <span>TORPEDO <span class="text-[10px] text-amber-400 font-mono">[-3]</span></span>
-        </button>
-
-        <!-- Air Recon Sweep -->
-        <button id="btnRecon" class="px-3 py-2 bg-slate-900 hover:bg-cyan-950/70 border border-cyan-600/60 text-cyan-300 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 shadow">
-          <i class="ph ph-airplane text-base"></i>
-          <span>RECON SWEEP <span class="text-[10px] text-cyan-400 font-mono">[-3]</span></span>
-        </button>
-
-        <!-- Bomber Airstrike -->
-        <button id="btnAirstrike" class="px-3 py-2 bg-slate-900 hover:bg-rose-950/70 border border-rose-600/60 text-rose-300 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition active:scale-95 shadow">
-          <i class="ph ph-bomb text-base"></i>
-          <span>AIRSTRIKE <span class="text-[10px] text-rose-400 font-mono">[-4]</span></span>
-        </button>
-
-        <!-- Salvage Wreckage -->
-        <button id="btnSalvage" class="px-3 py-2 bg-slate-900 hover:bg-amber-900/60 border border-amber-600/30 text-amber-400/50 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition opacity-60 cursor-not-allowed">
-          <i class="ph ph-magnet text-base"></i>
-          <span>SALVAGE <span class="text-[10px] font-mono">[-2]</span></span>
-        </button>
-
-        <!-- Engineering Tech Tree -->
-        <button id="btnTechTree" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition">
-          <i class="ph ph-wrench text-base"></i>
-          <span>UPGRADES</span>
-        </button>
-      </div>
-
-      <!-- END TURN BUTTON (Graphic 4 prominent style) -->
-      <div>
-        <button id="btnEndTurn" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-slate-950 font-black text-sm uppercase tracking-widest rounded shadow-[0_0_15px_rgba(245,158,11,0.5)] border-2 border-amber-300 flex items-center gap-2 transition cursor-pointer">
-          <i class="ph ph-clock-countdown text-lg"></i>
-          <span>END TURN</span>
-        </button>
-      </div>
-
+        <button id="btnEndTurn" class="endturn"><i class="ph ph-clock-countdown"></i><span>END TURN</span></button>
+      </section>
     </div>
   </footer>
 
@@ -629,12 +620,13 @@
       scene.add(moonLight);
 
       // Faint emergency amber glow
-      const amberRim = new THREE.DirectionalLight(0xf59e0b, 0.5);
+      const amberRim = new THREE.DirectionalLight(0xf59e0b, 0.0); // off: it made a huge yellow specular smear on the water
       amberRim.position.set(30, 20, -20);
       scene.add(amberRim);
 
       // Groups
       hexOverlayGroup = new THREE.Group();
+      hexOverlayGroup.position.y = 0.85; // float above the highest crest so lines are never swallowed
       scene.add(hexOverlayGroup);
       dynamicFXGroup = new THREE.Group();
       scene.add(dynamicFXGroup);
@@ -655,7 +647,7 @@
       const W = container.clientWidth, H = container.clientHeight;
       if (W >= 900) {
         const zoom = 0.8, fw = W * zoom, fh = H * zoom;
-        camera.setViewOffset(fw, fh, (fw - W) / 2 + 25, (fh - H) / 2 + 15, W, H);
+        camera.setViewOffset(fw, fh, (fw - W) / 2, (fh - H) / 2 + 10, W, H);
       } else {
         camera.clearViewOffset();
       }
@@ -870,8 +862,8 @@
           line.material.opacity = 0.75;
           line.position.y = 0.3;
         } else {
-          line.material.color.setHex(0x0e1c27); // Dark fog
-          line.material.opacity = 0.2;
+          line.material.color.setHex(0x2c5068); // Dark fog
+          line.material.opacity = 0.32;
           line.position.y = 0.1;
         }
       });
@@ -1008,6 +1000,96 @@
     }
 
     // Update ship visibility based on Fog of War
+    /* Wreck markers: dark oil slick + debris, with a floating "SALVAGEABLE" tag */
+    const wreckMarkers = new Map();
+    function syncWreckMarkers() {
+      if (!scene || !GameState.tiles.length) return;
+      const seen = new Set();
+      for (let c = 0; c < GRID_COLS; c++) {
+        for (let r = 0; r < GRID_ROWS; r++) {
+          const t = GameState.tiles[c][r];
+          if (!t.wreck || t.revealed < 1) continue;
+          const key = c + ',' + r;
+          seen.add(key);
+          if (wreckMarkers.has(key)) continue;
+
+          const g = new THREE.Group();
+          const slick = new THREE.Mesh(
+            new THREE.CircleGeometry(1.5, 20).rotateX(-Math.PI / 2),
+            new THREE.MeshBasicMaterial({ color: 0x050607, transparent: true, opacity: 0.8, depthWrite: false })
+          );
+          g.add(slick);
+          const debrisMat = new THREE.MeshStandardMaterial({ color: 0x2b2a28, roughness: 0.9 });
+          for (let i = 0; i < 6; i++) {
+            const d = new THREE.Mesh(new THREE.BoxGeometry(0.3 + Math.random() * 0.5, 0.08, 0.2 + Math.random() * 0.4), debrisMat);
+            d.position.set((Math.random() - 0.5) * 2, 0.06, (Math.random() - 0.5) * 2);
+            d.rotation.y = Math.random() * Math.PI;
+            g.add(d);
+          }
+          const ember = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff8a1e }));
+          ember.position.set(0.2, 0.15, -0.1);
+          g.add(ember);
+
+          const p = getHexWorldPos(c, r);
+          g.position.set(p.x, 0.12, p.z);
+          g.userData.yaw = 0;
+          scene.add(g);
+
+          const tag = document.createElement('div');
+          tag.className = 'world-tag';
+          tag.textContent = 'SALVAGEABLE [-2 AP]';
+          document.getElementById('worldTags').appendChild(tag);
+          wreckMarkers.set(key, { mesh: g, tag, col: c, row: r });
+        }
+      }
+      for (const [key, m] of wreckMarkers) {
+        if (!seen.has(key)) {
+          scene.remove(m.mesh);
+          m.tag.remove();
+          wreckMarkers.delete(key);
+        }
+      }
+    }
+
+    function updateWorldTags(t) {
+      for (const m of wreckMarkers.values()) {
+        rideWaves(m.mesh, 0.12, t, 1);
+        const here = GameState.sub.col === m.col && GameState.sub.row === m.row && GameState.sub.depth === DEPTH_SURFACED;
+        const q = toScreenPosition(m.mesh.position.x, 1.4, m.mesh.position.z);
+        m.tag.style.left = `${q.x}px`;
+        m.tag.style.top = `${q.y - 14}px`;
+        m.tag.style.display = here ? 'none' : 'block';
+      }
+    }
+
+    /* Rain overlay (cosmetic, time-based) */
+    function initRain() {
+      const cv = document.getElementById('rainCanvas');
+      if (!cv || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const ctx = cv.getContext('2d');
+      let W = 0, H = 0;
+      const drops = [];
+      function resize() { W = cv.width = cv.clientWidth; H = cv.height = cv.clientHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      for (let i = 0; i < 220; i++) drops.push({ x: Math.random(), y: Math.random(), len: 10 + Math.random() * 16, sp: 0.9 + Math.random() * 0.8, a: 0.1 + Math.random() * 0.2 });
+      let last = performance.now();
+      (function tick(now) {
+        const dt = Math.min(0.1, (now - last) / 1000); last = now;
+        ctx.clearRect(0, 0, W, H);
+        ctx.lineWidth = 1;
+        for (const d of drops) {
+          d.y += d.sp * dt * 1.4; d.x -= d.sp * dt * 0.25;
+          if (d.y > 1.05) { d.y = -0.05; d.x = Math.random() * 1.2; }
+          if (d.x < -0.05) d.x = 1.05;
+          const x = d.x * W, y = d.y * H;
+          ctx.strokeStyle = `rgba(190,215,235,${d.a})`;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - d.len * 0.25, y + d.len); ctx.stroke();
+        }
+        requestAnimationFrame(tick);
+      })(last);
+    }
+
     function updateShipVisibilities() {
       GameState.enemies.forEach(ship => {
         const tile = GameState.tiles[ship.col][ship.row];
@@ -1033,6 +1115,7 @@
           ship.mesh.visible = false;
         }
       });
+      syncWreckMarkers();
     }
 
     /* ==========================================================================
@@ -1489,16 +1572,19 @@
     document.getElementById('btnTorpedo').addEventListener('click', () => {
       GameState.selectedAction = 'TORPEDO';
       showToast('Select target hex for torpedo salvo');
+      updateUI();
     });
 
     document.getElementById('btnRecon').addEventListener('click', () => {
       GameState.selectedAction = 'RECON';
       showToast('Select hex for Catalina reconnaissance');
+      updateUI();
     });
 
     document.getElementById('btnAirstrike').addEventListener('click', () => {
       GameState.selectedAction = 'AIRSTRIKE';
       showToast('Click confirmed enemy vessel for air strike');
+      updateUI();
     });
 
     // Salvage
@@ -1735,57 +1821,61 @@
       document.getElementById('turnDisplay').textContent = GameState.turn;
       document.getElementById('apCounter').textContent = `${GameState.currentAP}/${GameState.maxAP} AP`;
 
-      // AP Pips
+      // AP ticks
       const pipsContainer = document.getElementById('apSegments');
       pipsContainer.innerHTML = '';
       for (let i = 0; i < GameState.maxAP; i++) {
         const pip = document.createElement('span');
-        pip.className = `inline-block w-2 sm:w-2.5 h-3 rounded-sm ${
-          i < GameState.currentAP ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]' : 'bg-slate-800'
-        }`;
+        pip.className = 'ap-tick' + (i < GameState.currentAP ? ' on' : '');
         pipsContainer.appendChild(pip);
       }
-
-      document.getElementById('batteryDisplay').textContent = `${GameState.sub.battery}%`;
-      document.getElementById('scrapDisplay').textContent = GameState.scrap;
+      document.getElementById('turnMax').textContent = GameState.maxTurns;
 
       const sub = GameState.sub;
-      document.getElementById('hullValue').textContent = `${sub.hull}%`;
-      document.getElementById('hullBar').style.width = `${sub.hull}%`;
+      const bat = document.getElementById('batteryBar');
+      document.getElementById('batteryDisplay').textContent = `${sub.battery}%` + (sub.battery <= 25 ? ' LOW' : '');
+      bat.style.width = `${sub.battery}%`;
+      bat.style.background = sub.battery <= 25 ? 'var(--red)' : 'var(--amber)';
+      document.getElementById('scrapDisplay').textContent = GameState.scrap;
+      document.getElementById('intelDisplay').textContent = GameState.intel;
+
+      document.getElementById('hullValue').textContent = `${sub.hull}%` + (sub.hull <= 30 ? ' CRITICAL' : '');
+      const hb = document.getElementById('hullBar');
+      hb.style.width = `${sub.hull}%`;
+      hb.style.background = sub.hull <= 30 ? 'var(--red)' : 'var(--green)';
       document.getElementById('torpCount').textContent = `${sub.torpedoes}/${sub.maxTorpedoes}`;
 
-      const bSurface = document.getElementById('btnSurface');
-      const bPeriscope = document.getElementById('btnPeriscope');
-      const bDive = document.getElementById('btnDive');
-      const depthBadge = document.getElementById('subDepthLabel');
+      const depthNames = ['SURFACED', 'PERISCOPE DEPTH', 'DEEP DIVE'];
+      document.getElementById('subDepthLabel').textContent = `(${depthNames[sub.depth]})`;
 
-      [bSurface, bPeriscope, bDive].forEach(b => {
-        b.className = 'px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent';
+      // Command tiles: current depth, armed targeting mode, low AP
+      const torpCost = GameState.tech.fastReload ? 2 : 3;
+      const airCost = GameState.tech.airSupportRadio ? 3 : 4;
+      document.getElementById('costTorpedo').textContent = `[-${torpCost} AP]`;
+      document.getElementById('costAirstrike').textContent = `[-${airCost} AP]`;
+      const tiles = [
+        ['btnSurface', 1, sub.depth === DEPTH_SURFACED, null],
+        ['btnPeriscope', 2, sub.depth === DEPTH_PERISCOPE, null],
+        ['btnDive', 2, sub.depth === DEPTH_DEEP, null],
+        ['btnPing', 2, false, null],
+        ['btnTorpedo', torpCost, false, 'TORPEDO'],
+        ['btnRecon', 3, false, 'RECON'],
+        ['btnAirstrike', airCost, false, 'AIRSTRIKE'],
+        ['btnSalvage', 2, false, null]
+      ];
+      tiles.forEach(([id, cost, active, mode]) => {
+        const el = document.getElementById(id);
+        el.dataset.active = active ? 'true' : 'false';
+        el.dataset.armed = (mode && GameState.selectedAction === mode) ? 'true' : 'false';
+        el.dataset.low = (!active && GameState.currentAP < cost) ? 'true' : 'false';
       });
 
-      if (sub.depth === DEPTH_SURFACED) {
-        depthBadge.textContent = 'SURFACED';
-        depthBadge.className = 'text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-600';
-        bSurface.className = 'px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition bg-emerald-900 text-emerald-200 border border-emerald-500 shadow';
-      } else if (sub.depth === DEPTH_PERISCOPE) {
-        depthBadge.textContent = 'PERISCOPE';
-        depthBadge.className = 'text-[10px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-400 font-bold border border-cyan-600';
-        bPeriscope.className = 'px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition bg-cyan-900 text-cyan-200 border border-cyan-500 shadow';
-      } else {
-        depthBadge.textContent = 'DEEP DIVE';
-        depthBadge.className = 'text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-400 font-bold border border-purple-600';
-        bDive.className = 'px-2.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 transition bg-purple-900 text-purple-200 border border-purple-500 shadow';
-      }
-
-      // Salvage Button
+      // Salvage tile
       const curTile = GameState.tiles[sub.col][sub.row];
       const btnSalvage = document.getElementById('btnSalvage');
-      if (curTile.wreck && sub.depth === DEPTH_SURFACED) {
-        btnSalvage.className = 'px-3 py-2 bg-amber-900 hover:bg-amber-800 border border-amber-500 text-amber-200 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition animate-pulse cursor-pointer shadow-lg';
-      } else {
-        btnSalvage.className = 'px-3 py-2 bg-slate-900 hover:bg-amber-900/60 border border-amber-600/30 text-amber-400/50 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition opacity-60 cursor-not-allowed';
-      }
+      btnSalvage.dataset.ready = (curTile.wreck && sub.depth === DEPTH_SURFACED) ? 'true' : 'false';
 
+      syncWreckMarkers();
       updateMiniRadar();
     }
 
@@ -1793,19 +1883,23 @@
       const blipsContainer = document.getElementById('radarBlips');
       blipsContainer.innerHTML = '';
       const sub = GameState.sub;
+      const size = blipsContainer.clientWidth || 134;
 
       GameState.enemies.forEach(e => {
         const dCol = (e.col - sub.col) / GRID_COLS;
         const dRow = (e.row - sub.row) / GRID_ROWS;
-        const px = 72 + dCol * 55;
-        const py = 72 + dRow * 55;
+        const px = size / 2 + dCol * size * 0.8;
+        const py = size / 2 + dRow * size * 0.8;
 
         const tile = GameState.tiles[e.col][e.row];
         if (tile.revealed >= 1) {
+          // Shape as well as colour: warship = red diamond, merchant = amber circle
+          const warship = e.type === 'DESTROYER';
           const blip = document.createElement('div');
-          blip.className = `absolute w-2 h-2 rounded-full ${e.type === 'DESTROYER' ? 'bg-rose-500 shadow-[0_0_6px_#f43f5e]' : 'bg-amber-400'}`;
-          blip.style.left = `${px}px`;
-          blip.style.top = `${py}px`;
+          blip.className = 'absolute';
+          blip.style.cssText = `width:9px;height:9px;left:${px - 4.5}px;top:${py - 4.5}px;` +
+            (warship ? 'background:#ff5a52;transform:rotate(45deg);box-shadow:0 0 6px #ff5a52;'
+                     : 'background:#f5a524;border-radius:50%;');
           blipsContainer.appendChild(blip);
         }
       });
@@ -1814,8 +1908,8 @@
     function addLog(msg) {
       const log = document.getElementById('battleLog');
       const item = document.createElement('div');
-      item.className = 'text-slate-300 border-l border-amber-500/60 pl-1.5 py-0.5';
-      item.innerHTML = `<span class="text-amber-500">[T+${GameState.turn}]</span> ${msg}`;
+      item.className = 'log-line';
+      item.innerHTML = `<b>[T+${GameState.turn}]</b> ${msg}`;
       log.prepend(item);
     }
 
@@ -1861,6 +1955,8 @@
         if (wk) wk.visible = sub.targetY > 0;
       }
 
+      updateWorldTags(elapsed);
+
       // Enemy ships ride the same swell
       GameState.enemies.forEach((enemy) => {
         if (enemy.mesh) rideWaves(enemy.mesh, 0.2, elapsed, 1);
@@ -1871,6 +1967,7 @@
 
     window.addEventListener('load', () => {
       init3D();
+      initRain();
       updateUI();
       addLog('U-96 entered Atlantic Sector 4. High-command orders: Intercept 3 merchant convoys.');
       animate();
