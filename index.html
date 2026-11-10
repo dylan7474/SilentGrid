@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Silent Grid: WW2 Tactical Submarine Command</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons for tactical military symbols -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;700;800&display=swap');
+
+    :root {
+      --radar-green: #38ef7d;
+      --radar-amber: #f59e0b;
+      --tactical-blue: #0f1f2c;
+      --hud-panel: rgba(13, 23, 33, 0.88);
+      --hud-border: rgba(56, 239, 125, 0.25);
+    }
+
+    body {
+      font-family: 'Share Tech Mono', monospace, 'Inter', sans-serif;
+      background-color: #050b11;
+      color: #cbd5e1;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* CRT Scanline & Grain overlay */
+    .crt-overlay {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+
+    /* Radar sweep animation for mini-map */
+    @keyframes radar-sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-sweep-line {
+      animation: radar-sweep 4s linear infinite;
+      transform-origin: 50% 50%;
+    }
+
+    /* Pulse effects */
+    @keyframes ping-glow {
+      0% { box-shadow: 0 0 0 0 rgba(56, 239, 125, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(56, 239, 125, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 239, 125, 0); }
+    }
+
+    .sonar-ping-btn {
+      animation: ping-glow 2s infinite;
+    }
+
+    /* Custom Tactical Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 20, 30, 0.7);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(56, 239, 125, 0.4);
+      border-radius: 2px;
+    }
+
+    /* Glow text */
+    .text-glow-green {
+      text-shadow: 0 0 8px rgba(56, 239, 125, 0.6);
+    }
+    .text-glow-amber {
+      text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+    }
+    .text-glow-red {
+      text-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between relative bg-slate-950 text-slate-200">
+
+  <!-- CRT scanline effect container -->
+  <div class="crt-overlay fixed inset-0 z-40"></div>
+
+  <!-- Top Tactical Command Status Bar -->
+  <header class="relative z-30 flex items-center justify-between px-4 py-2 border-b border-emerald-900/50 bg-slate-900/90 backdrop-blur-md text-xs sm:text-sm">
+    <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="font-bold tracking-wider text-emerald-400 uppercase" id="factionDisplay">AXIS: U-96 WOLFPACK</span>
+      </div>
+      <span class="text-slate-600">|</span>
+      <div>
+        <span class="text-slate-400">TURN:</span>
+        <span class="font-bold text-amber-400" id="turnDisplay">1</span>
+        <span class="text-slate-500">/ 35</span>
+      </div>
+      <span class="text-slate-600 hidden md:inline">|</span>
+      <div class="hidden md:flex items-center space-x-1">
+        <i class="ph ph-cloud-rain text-cyan-400 text-base"></i>
+        <span class="text-slate-400">SEA STATE:</span>
+        <span class="text-cyan-300 uppercase" id="weatherDisplay">FORCE 6 STORM</span>
+      </div>
+    </div>
+
+    <!-- Action Points Gauge & Turn Status -->
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center bg-slate-950/80 px-3 py-1 rounded border border-emerald-800/60 shadow-inner">
+        <span class="text-slate-400 font-semibold mr-2">AP:</span>
+        <div id="apSegments" class="flex space-x-1">
+          <!-- Populated dynamically with AP pips -->
+        </div>
+        <span class="ml-2 font-bold text-emerald-400" id="apCounter">10/10</span>
+      </div>
+
+      <div class="hidden lg:flex items-center space-x-4 bg-slate-950/60 px-3 py-1 rounded border border-slate-800">
+        <div class="flex items-center space-x-1">
+          <i class="ph ph-wrench text-amber-400"></i>
+          <span class="text-slate-400">SCRAP:</span>
+          <span class="font-bold text-amber-400" id="scrapDisplay">0</span>
+        </div>
+        <div class="flex items-center space-x-1">
+          <i class="ph ph-cpu text-cyan-400"></i>
+          <span class="text-slate-400">INTEL:</span>
+          <span class="font-bold text-cyan-400" id="intelDisplay">0</span>
+        </div>
+      </div>
+
+      <!-- Audio Mute & Rules Toggle -->
+      <button id="audioToggleBtn" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300 text-xs flex items-center gap-1 transition" title="Toggle Sound FX">
+        <i class="ph ph-speaker-high" id="audioIcon"></i>
+        <span class="hidden sm:inline">SFX</span>
+      </button>
+
+      <button id="briefingBtn" class="px-2 py-1 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 rounded text-xs flex items-center gap-1 transition">
+        <i class="ph ph-notepad"></i>
+        <span class="hidden sm:inline">INTEL</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Central Gameplay Viewport with Map Canvas and Side Tactical Panels -->
+  <main class="relative flex-1 w-full h-full overflow-hidden flex">
+    
+    <!-- Left Tactical Feed / Log -->
+    <div class="hidden xl:flex flex-col w-64 bg-slate-950/85 border-r border-slate-800/80 p-3 z-20 backdrop-blur-sm justify-between">
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-1 mb-2 flex items-center justify-between">
+          <span>HYDROPHONE / LOG</span>
+          <span class="text-emerald-500 text-[9px] uppercase animate-pulse">LIVE</span>
+        </div>
+        <div id="battleLog" class="h-64 overflow-y-auto space-y-1 text-[11px] pr-1 text-slate-300 font-mono">
+          <!-- Dynamic battle messages -->
+        </div>
+      </div>
+
+      <!-- Quick Sub Status Card -->
+      <div class="bg-slate-900/90 p-2.5 rounded border border-slate-700/60 text-xs space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-emerald-400 flex items-center gap-1">
+            <i class="ph ph-anchor"></i> SUB SYSTEMS
+          </span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300" id="depthBadge">SURFACED</span>
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-400">HULL INTEGRITY</span>
+            <span class="text-emerald-400 font-bold" id="hullPercent">100%</span>
+          </div>
+          <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+            <div id="hullBar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-400">BATTERY / O2</span>
+            <span class="text-cyan-400 font-bold" id="batteryPercent">100%</span>
+          </div>
+          <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+            <div id="batteryBar" class="bg-cyan-500 h-full w-full transition-all duration-300"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-400">TORPEDO TUBES</span>
+            <span class="text-amber-400 font-bold" id="torpedoCount">4 / 4</span>
+          </div>
+          <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+            <div id="torpedoBar" class="bg-amber-500 h-full w-full transition-all duration-300"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Strategic Ocean Canvas -->
+    <div class="relative flex-1 h-full w-full bg-slate-950 overflow-hidden cursor-crosshair">
+      <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+      <!-- Tactical Cursor / Target Inspection Overlay Card -->
+      <div id="tileTooltip" class="absolute hidden pointer-events-none z-30 bg-slate-900/95 border border-emerald-500/50 p-2.5 rounded shadow-2xl backdrop-blur-md text-xs font-mono min-w-[170px]">
+        <div class="text-emerald-400 font-bold border-b border-slate-700 pb-1 mb-1" id="tooltipTitle">COORDINATE</div>
+        <div class="text-slate-300 space-y-0.5 text-[11px]" id="tooltipBody"></div>
+      </div>
+
+      <!-- Action Confirmation Float Toast -->
+      <div id="actionToast" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 border border-amber-500/80 text-amber-300 px-4 py-1.5 rounded-full shadow-lg text-xs tracking-wider uppercase font-bold opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2">
+        <i class="ph ph-warning-circle text-base"></i>
+        <span id="toastMsg">SELECT TARGET HEX</span>
+      </div>
+    </div>
+
+    <!-- Right Tactical Sonar Scope & Intel Panel -->
+    <div class="hidden lg:flex flex-col w-56 bg-slate-950/85 border-l border-slate-800/80 p-3 z-20 backdrop-blur-sm justify-between">
+      <div class="space-y-3">
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+          <span>PPI RADAR / SONAR</span>
+          <i class="ph ph-compass text-emerald-400"></i>
+        </div>
+
+        <!-- Animated CRT Radar Scope Display -->
+        <div class="relative w-44 h-44 mx-auto rounded-full border-2 border-emerald-800 bg-[#02140e] overflow-hidden shadow-inner flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full border border-emerald-500/20 scale-75"></div>
+          <div class="absolute inset-0 rounded-full border border-emerald-500/20 scale-50"></div>
+          <div class="absolute inset-0 rounded-full border border-emerald-500/20 scale-25"></div>
+          <!-- Crosshairs -->
+          <div class="absolute w-full h-[1px] bg-emerald-500/30"></div>
+          <div class="absolute h-full w-[1px] bg-emerald-500/30"></div>
+          <!-- Sweeping Radar Line -->
+          <div class="absolute inset-0 radar-sweep-line">
+            <div class="w-1/2 h-full bg-gradient-to-r from-transparent to-emerald-500/40 origin-right"></div>
+          </div>
+          <!-- Blips Container -->
+          <div id="radarBlips" class="absolute inset-0 pointer-events-none"></div>
+          <!-- Center Sub Icon -->
+          <div class="w-2 h-2 rounded-full bg-emerald-400 z-10 shadow-[0_0_8px_#38ef7d]"></div>
+        </div>
+
+        <!-- Objectives Checklist -->
+        <div class="bg-slate-900/60 p-2.5 rounded border border-slate-800 text-[11px] space-y-1.5">
+          <div class="text-slate-400 font-bold uppercase border-b border-slate-800 pb-0.5 flex justify-between">
+            <span>MISSION ORDERS</span>
+            <span class="text-emerald-400 font-bold" id="convoyKillsDisplay">0/3 SUNK</span>
+          </div>
+          <div class="text-slate-300">
+            <span class="text-amber-400">1.</span> Sink 3 Allied Merchant Convoys.
+          </div>
+          <div class="text-slate-300">
+            <span class="text-amber-400">2.</span> Evade Destroyer depth charge sweeps.
+          </div>
+          <div class="text-slate-300">
+            <span class="text-amber-400">3.</span> Salvage wrecks to unlock acoustic tech.
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Salvage & Tech Access -->
+      <button id="openTechTreeBtn" class="w-full py-2 bg-gradient-to-r from-amber-950/60 to-slate-900 hover:from-amber-900/80 hover:to-slate-800 border border-amber-600/50 text-amber-300 rounded font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg">
+        <i class="ph ph-gear text-base"></i> ENGINEERING LAB
+      </button>
+    </div>
+  </main>
+
+  <!-- Bottom Command Bridge & Tactical Actions -->
+  <footer class="relative z-30 bg-slate-900/95 border-t border-emerald-900/40 p-2 sm:p-3 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- Submarine Posture Depth Controls -->
+      <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+        <button id="btnSurface" class="px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition border border-transparent bg-emerald-900/80 text-emerald-200 border-emerald-500 shadow">
+          <i class="ph ph-arrow-fat-up"></i>
+          <span>SURFACE <span class="text-[10px] opacity-75">(1 AP)</span></span>
+        </button>
+        <button id="btnPeriscope" class="px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+          <i class="ph ph-eye"></i>
+          <span>PERISCOPE <span class="text-[10px] opacity-75">(2 AP)</span></span>
+        </button>
+        <button id="btnDive" class="px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+          <i class="ph ph-arrow-fat-down"></i>
+          <span>DEEP DIVE <span class="text-[10px] opacity-75">(2 AP)</span></span>
+        </button>
+      </div>
+
+      <!-- Weapon & Support Tactical Actions -->
+      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <!-- Sonar Active Ping -->
+        <button id="btnPing" class="px-3 py-2 bg-slate-950 hover:bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-sm active:scale-95 sonar-ping-btn">
+          <i class="ph ph-broadcast text-base"></i>
+          <span>ACTIVE PING <span class="text-[10px] text-emerald-400 font-mono">[-2 AP]</span></span>
+        </button>
+
+        <!-- Torpedo Attack -->
+        <button id="btnTorpedo" class="px-3 py-2 bg-slate-950 hover:bg-amber-950/60 border border-amber-700/60 text-amber-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-sm active:scale-95">
+          <i class="ph ph-crosshair text-base"></i>
+          <span>TORPEDO SALVO <span class="text-[10px] text-amber-400 font-mono">[-3 AP]</span></span>
+        </button>
+
+        <!-- Air Recon Sweep -->
+        <button id="btnRecon" class="px-3 py-2 bg-slate-950 hover:bg-cyan-950/60 border border-cyan-700/60 text-cyan-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-sm active:scale-95">
+          <i class="ph ph-airplane text-base"></i>
+          <span>AIR RECON <span class="text-[10px] text-cyan-400 font-mono">[-3 AP]</span></span>
+        </button>
+
+        <!-- Heavy Bomber Airstrike -->
+        <button id="btnAirstrike" class="px-3 py-2 bg-slate-950 hover:bg-rose-950/60 border border-rose-700/60 text-rose-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-sm active:scale-95">
+          <i class="ph ph-bomb text-base"></i>
+          <span>AIRSTRIKE <span class="text-[10px] text-rose-400 font-mono">[-4 AP]</span></span>
+        </button>
+
+        <!-- Salvage Wreck -->
+        <button id="btnSalvage" class="px-3 py-2 bg-slate-950 hover:bg-amber-950/60 border border-amber-600/50 text-amber-400 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition opacity-60 cursor-not-allowed">
+          <i class="ph ph-magnet text-base"></i>
+          <span>SALVAGE WRECK <span class="text-[10px] font-mono">[-2 AP]</span></span>
+        </button>
+      </div>
+
+      <!-- Turn Commit Action -->
+      <div class="flex items-center space-x-2">
+        <button id="btnEndTurn" class="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-950 font-extrabold text-xs uppercase tracking-widest rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] border border-amber-400 flex items-center gap-2 transition">
+          <i class="ph ph-clock-countdown text-base"></i>
+          <span>END TURN</span>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Modal: Engineering / Tech Salvage Laboratory -->
+  <div id="techModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-amber-500/60 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+        <div class="flex items-center gap-2">
+          <i class="ph ph-wrench text-2xl text-amber-400"></i>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-100 tracking-wider">SALVAGE ENGINEERING DOCK</h2>
+            <p class="text-xs text-slate-400">Refit your U-Boat using salvaged steel armor and recovered enigma encryption.</p>
+          </div>
+        </div>
+        <button id="closeTechModal" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-100">
+          <i class="ph ph-x text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Resources Summary -->
+      <div class="flex items-center space-x-6 bg-slate-950 p-3 rounded-lg border border-slate-800 mb-4 text-xs font-mono">
+        <div>
+          <span class="text-slate-400">AVAILABLE SCRAP:</span>
+          <span class="text-amber-400 font-bold text-sm ml-1" id="modalScrap">0</span>
+        </div>
+        <div>
+          <span class="text-slate-400">CAPTURED INTEL:</span>
+          <span class="text-cyan-400 font-bold text-sm ml-1" id="modalIntel">0</span>
+        </div>
+      </div>
+
+      <!-- Tech Upgrades List -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="techUpgradeList">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Mission Briefing / Intel -->
+  <div id="briefingModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-emerald-500/60 rounded-xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h2 class="text-lg font-bold text-emerald-400 tracking-wider flex items-center gap-2">
+          <i class="ph ph-shield-check"></i> ADMIRALTY TACTICAL BRIEFING
+        </h2>
+        <button id="closeBriefingModal" class="p-1 hover:bg-slate-800 rounded text-slate-400">
+          <i class="ph ph-x text-xl"></i>
+        </button>
+      </div>
+      <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
+        <p><strong class="text-emerald-300">1. Fog of War & Detection:</strong> The ocean is dark and hostile. You only see contacts via <span class="text-cyan-300">Active Sonar Pings</span>, <span class="text-amber-300">Visual Range (Periscope/Surfaced)</span>, or <span class="text-emerald-300">Air Recon sweeps</span>. Beware: Pinging broadcasts your own location!</p>
+        <p><strong class="text-emerald-300">2. Submarine Depths:</strong>
+          <br>• <span class="text-emerald-400 font-bold">Surfaced:</span> Fast speed, recharges battery/O2, required to salvage wreckages, but highly vulnerable.
+          <br>• <span class="text-cyan-400 font-bold">Periscope:</span> Good visual spotting, can launch torpedoes, moderate stealth.
+          <br>• <span class="text-purple-400 font-bold">Deep Submerged:</span> Completely invisible to visual lines, evades light attacks, but drains battery and is blind without sonar.
+        </p>
+        <p><strong class="text-emerald-300">3. Combat & Salvage:</strong> Torpedo merchant convoys and call in air strikes. Sunk vessels leave behind glowing wreckage tiles. Navigate a surfaced submarine onto a wreck to harvest <span class="text-amber-400">Scrap</span> and <span class="text-cyan-400">Intel</span> for game-changing upgrades.</p>
+      </div>
+      <div class="pt-2 flex justify-end">
+        <button id="btnDismissBriefing" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs uppercase rounded">
+          CONFIRM & COMMENCE PATROL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Game Debrief Overlay -->
+  <div id="endGameModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-emerald-500 rounded-xl max-w-md w-full p-6 text-center shadow-2xl space-y-4">
+      <div class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl" id="endGameIcon">
+        <i class="ph ph-trophy"></i>
+      </div>
+      <h2 class="text-xl font-bold tracking-wider uppercase" id="endGameTitle">MISSION ACCOMPLISHED</h2>
+      <p class="text-xs text-slate-300 leading-relaxed" id="endGameDesc">
+        All Allied merchant supply convoys have been sent to the ocean bed.
+      </p>
+      <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono space-y-1">
+        <div class="flex justify-between">
+          <span class="text-slate-400">Turns Elapsed:</span>
+          <span class="text-amber-400" id="endTurns">12</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Total Scrap Salvaged:</span>
+          <span class="text-cyan-400" id="endScrap">120</span>
+        </div>
+      </div>
+      <button id="btnRestartGame" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs uppercase rounded tracking-wider transition">
+        INITIATE NEW PATROL
+      </button>
+    </div>
+  </div>
+
+  <!-- Web Audio Synthesizer & Game Engine Script -->
+  <script>
+    /* ==========================================================================
+       1. TACTICAL SOUND SYNTHESIZER (Web Audio API - No External Assets)
+       ========================================================================== */
+    class TacticalAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      }
+
+      // Eerie Resonant Sonar Ping
+      playSonarPing() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(840, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.9);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 1.6);
+      }
+
+      // Low-Frequency Torpedo Launch Whoosh
+      playTorpedoLaunch() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        // White noise hiss
+        const bufferSize = this.ctx.sampleRate * 0.8;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(120, now + 0.8);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start(now);
+        noise.stop(now + 0.8);
+      }
+
+      // Deep Underwater Muffled Explosion
+      playExplosion() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 1.2);
+
+        oscGain.gain.setValueAtTime(0.5, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+
+        // Add low rumbling noise
+        const bufferSize = this.ctx.sampleRate * 1.2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, now);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.6, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.ctx.destination);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 1.2);
+        noise.start(now);
+        noise.stop(now + 1.2);
+      }
+
+      // Propeller Airplane Flyby / Bomber Drone
+      playAirstrikeSound() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(95, now);
+        osc.frequency.linearRampToValueAtTime(130, now + 1.0);
+        osc.frequency.linearRampToValueAtTime(80, now + 2.0);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.9);
+        gain.gain.linearRampToValueAtTime(0.001, now + 2.0);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 2.0);
+      }
+
+      // Mechanical Clank for Salvage / Upgrade
+      playMechanicalClick() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+    }
+
+    const sound = new TacticalAudioEngine();
+
+    /* ==========================================================================
+       2. HEXAGONAL GRID SYSTEM & GAME MATH
+       ========================================================================== */
+    const GRID_COLS = 13;
+    const GRID_ROWS = 9;
+
+    // Tactical Depths: 0 = Surfaced, 1 = Periscope, 2 = Deep Dive
+    const DEPTH_SURFACED = 0;
+    const DEPTH_PERISCOPE = 1;
+    const DEPTH_DEEP = 2;
+
+    class HexGrid {
+      constructor(cols, rows, hexRadius) {
+        this.cols = cols;
+        this.rows = rows;
+        this.radius = hexRadius;
+        this.width = Math.sqrt(3) * hexRadius;
+        this.height = 2 * hexRadius;
+        this.vertDist = (3 / 4) * this.height;
+      }
+
+      // Converts axial/offset (col, row) to canvas pixel center
+      getHexCenter(col, row, offsetX, offsetY) {
+        const x = offsetX + col * this.width + (row % 2 !== 0 ? this.width / 2 : 0);
+        const y = offsetY + row * this.vertDist;
+        return { x, y };
+      }
+
+      // Determines closest hex to a pixel point (col, row)
+      getHexFromPixel(px, py, offsetX, offsetY) {
+        let closestDist = Infinity;
+        let closestHex = null;
+
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const center = this.getHexCenter(c, r, offsetX, offsetY);
+            const dist = Math.hypot(px - center.x, py - center.y);
+            if (dist < closestDist && dist <= this.radius) {
+              closestDist = dist;
+              closestHex = { col: c, row: r };
+            }
+          }
+        }
+        return closestHex;
+      }
+
+      // Calculates distance in steps between two hex cells
+      distance(c1, r1, c2, r2) {
+        const x1 = c1 - (r1 - (r1 & 1)) / 2;
+        const z1 = r1;
+        const y1 = -x1 - z1;
+
+        const x2 = c2 - (r2 - (r2 & 1)) / 2;
+        const z2 = r2;
+        const y2 = -x2 - z2;
+
+        return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+      }
+    }
+
+    /* ==========================================================================
+       3. GAME STATE MANAGEMENT
+       ========================================================================== */
+    const GameState = {
+      turn: 1,
+      maxTurns: 35,
+      currentAP: 10,
+      maxAP: 10,
+      scrap: 20,
+      intel: 15,
+      convoysSunk: 0,
+      targetConvoys: 3,
+      selectedAction: 'MOVE', // 'MOVE', 'TORPEDO', 'RECON', 'AIRSTRIKE'
+
+      // Submarine Attributes
+      sub: {
+        col: 2,
+        row: 4,
+        depth: DEPTH_SURFACED, // 0 = Surfaced, 1 = Periscope, 2 = Deep
+        hull: 100,
+        maxHull: 100,
+        battery: 100,
+        maxBattery: 100,
+        torpedoes: 4,
+        maxTorpedoes: 4,
+        revealedToEnemies: false, // Sonar alerted
+        wakeParticles: []
+      },
+
+      // Unlocked Technology Upgrades
+      tech: {
+        snorkel: false,         // Recharges battery at periscope depth
+        acousticHoming: false,  // Torpedoes ignore small obstacles/guaranteed hit
+        anechoicTiles: false,   // Enemy detection range -1 hex
+        fastReload: false,      // Torpedo costs 2 AP instead of 3
+        airSupportRadio: false  // Airstrike costs 3 AP instead of 4
+      },
+
+      // Tiles array [col][row]: { revealed: 0 (fog), 1 (sonar echo), 2 (visual), wreck: null|{scrap, intel} }
+      tiles: [],
+
+      // Active Ships & Hunters on the Board
+      enemies: [
+        { id: 1, type: 'CONVOY', name: 'Liberty Cargo SS-01', col: 8, row: 2, hull: 45, maxHull: 45, alert: false, dir: 1 },
+        { id: 2, type: 'CONVOY', name: 'Supply Vessel SS-04', col: 11, row: 5, hull: 45, maxHull: 45, alert: false, dir: -1 },
+        { id: 3, type: 'CONVOY', name: 'Tanker Olympic Pride', col: 9, row: 7, hull: 60, maxHull: 60, alert: false, dir: 1 },
+        { id: 4, type: 'DESTROYER', name: 'HMS Bulldog (Hunter)', col: 7, row: 4, hull: 90, maxHull: 90, alert: false, dir: 1 }
+      ],
+
+      // Ephemeral Visual FX
+      animations: {
+        sonarPings: [],       // { x, y, radius, maxRadius, alpha }
+        torpedoes: [],        // { startX, startY, curX, curY, targetX, targetY, progress }
+        depthCharges: [],     // { x, y, progress, radius }
+        explosions: [],       // { x, y, particles: [] }
+        airScouts: []         // { x, y, targetX, targetY, type: 'RECON'|'BOMBER' }
+      },
+
+      hoveredHex: null
+    };
+
+    /* ==========================================================================
+       4. INITIALIZATION & REVEAL MECHANICS
+       ========================================================================== */
+    function initTiles() {
+      GameState.tiles = [];
+      for (let c = 0; c < GRID_COLS; c++) {
+        GameState.tiles[c] = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+          GameState.tiles[c][r] = {
+            revealed: 0, // 0: Hidden in fog, 1: Sonar blip, 2: Fully visible
+            wreck: null  // null or { scrap: 30, intel: 15 }
+          };
+        }
+      }
+
+      // Add a starter wreckage from an earlier naval clash
+      GameState.tiles[4][3].wreck = { scrap: 40, intel: 20 };
+      recalcFogOfWar();
+    }
+
+    // Recalculates field of view based on sub's position and current depth
+    function recalcFogOfWar() {
+      // Degrade previous turn's temporary pings
+      for (let c = 0; c < GRID_COLS; c++) {
+        for (let r = 0; r < GRID_ROWS; r++) {
+          if (GameState.tiles[c][r].revealed === 1) {
+            GameState.tiles[c][r].revealed = 0;
+          }
+        }
+      }
+
+      const hex = hexGrid;
+      let visionRange = 2; // Default periscope
+      if (GameState.sub.depth === DEPTH_SURFACED) visionRange = 3;
+      if (GameState.sub.depth === DEPTH_DEEP) visionRange = 1; // Extremely limited visually
+
+      for (let c = 0; c < GRID_COLS; c++) {
+        for (let r = 0; r < GRID_ROWS; r++) {
+          const dist = hex.distance(GameState.sub.col, GameState.sub.row, c, r);
+          if (dist <= visionRange) {
+            GameState.tiles[c][r].revealed = 2;
+          }
+        }
+      }
+    }
+
+    /* ==========================================================================
+       5. CANVAS RENDERING & GRITTY OCEAN AESTHETIC
+       ========================================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let hexGrid;
+    let oceanTime = 0;
+
+    function resizeCanvas() {
+      const parent = canvas.parentElement;
+      canvas.width = parent.clientWidth;
+      canvas.height = parent.clientHeight;
+
+      // Adapt hex size dynamically to viewport width and height
+      const desiredWidth = canvas.width * 0.94;
+      const radiusFromWidth = desiredWidth / (GRID_COLS * Math.sqrt(3));
+      const radiusFromHeight = (canvas.height * 0.88) / (GRID_ROWS * 1.5);
+      const computedRadius = Math.max(22, Math.min(50, Math.min(radiusFromWidth, radiusFromHeight)));
+
+      hexGrid = new HexGrid(GRID_COLS, GRID_ROWS, computedRadius);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Main Draw Function (called every animation frame)
+    function render() {
+      oceanTime += 0.02;
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. Draw Stormy Ocean Background with Dynamic Wave Foam
+      drawOceanWaves();
+
+      // Grid offsets to center canvas
+      const totalGridWidth = GRID_COLS * hexGrid.width;
+      const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+      const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+      const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+
+      // 2. Draw Hexagon Grid
+      drawHexGrid(offsetX, offsetY);
+
+      // 3. Draw Wreckages & Debris Slicks
+      drawWrecks(offsetX, offsetY);
+
+      // 4. Draw Enemies (If Detected or within FOV)
+      drawEnemies(offsetX, offsetY);
+
+      // 5. Draw Player Submarine
+      drawPlayerSubmarine(offsetX, offsetY);
+
+      // 6. Draw Tactical Animations & Particle Effects (Pings, Torpedo Trails, Explosions)
+      drawAnimations(offsetX, offsetY);
+
+      // 7. Draw Targeting Previews / Move Range Overlays
+      drawActionOverlay(offsetX, offsetY);
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    // Realistic Storm Wave Shader via Canvas math
+    function drawOceanWaves() {
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      grad.addColorStop(0, '#06131d');
+      grad.addColorStop(0.5, '#0a1d2b');
+      grad.addColorStop(1, '#040d15');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Subtle dynamic ocean swells
+      ctx.strokeStyle = 'rgba(70, 160, 200, 0.05)';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 7; i++) {
+        ctx.beginPath();
+        const yBase = (canvas.height / 7) * i;
+        for (let x = 0; x < canvas.width; x += 30) {
+          const y = yBase + Math.sin(x * 0.01 + oceanTime + i) * 12 + Math.cos(x * 0.02 - oceanTime) * 6;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      // Rain streaking effect
+      ctx.strokeStyle = 'rgba(180, 220, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let r = 0; r < 25; r++) {
+        const rx = (Math.sin(r * 99 + oceanTime * 5) * 0.5 + 0.5) * canvas.width;
+        const ry = (Math.cos(r * 33 + oceanTime * 4) * 0.5 + 0.5) * canvas.height;
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx - 8, ry + 16);
+        ctx.stroke();
+      }
+    }
+
+    // Draws Hex cells and their Fog of War status
+    function drawHexGrid(offsetX, offsetY) {
+      for (let r = 0; r < hexGrid.rows; r++) {
+        for (let c = 0; c < hexGrid.cols; c++) {
+          const center = hexGrid.getHexCenter(c, r, offsetX, offsetY);
+          const tile = GameState.tiles[c][r];
+          const isHovered = GameState.hoveredHex && GameState.hoveredHex.col === c && GameState.hoveredHex.row === r;
+
+          // Compute vertices
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 6;
+            const hx = center.x + hexGrid.radius * Math.cos(angle);
+            const hy = center.y + hexGrid.radius * Math.sin(angle);
+            if (i === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+          }
+          ctx.closePath();
+
+          // Fill based on Fog of War
+          if (tile.revealed === 2) {
+            // Visible ocean
+            ctx.fillStyle = isHovered ? 'rgba(56, 239, 125, 0.12)' : 'rgba(15, 35, 50, 0.45)';
+            ctx.fill();
+            ctx.strokeStyle = isHovered ? 'rgba(56, 239, 125, 0.8)' : 'rgba(56, 239, 125, 0.18)';
+            ctx.lineWidth = isHovered ? 2 : 1;
+            ctx.stroke();
+          } else if (tile.revealed === 1) {
+            // Sonar Echo Contact (Faint green ping outline)
+            ctx.fillStyle = 'rgba(16, 45, 35, 0.55)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(56, 239, 125, 0.45)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          } else {
+            // Complete Fog of War
+            ctx.fillStyle = 'rgba(3, 7, 12, 0.82)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+
+          // Draw coordinates faint text for military look
+          if (tile.revealed >= 1) {
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${String.fromCharCode(65 + c)}${r + 1}`, center.x, center.y + hexGrid.radius * 0.72);
+          }
+        }
+      }
+    }
+
+    // Draws salvageable wreckage tiles
+    function drawWrecks(offsetX, offsetY) {
+      for (let r = 0; r < hexGrid.rows; r++) {
+        for (let c = 0; c < hexGrid.cols; c++) {
+          const tile = GameState.tiles[c][r];
+          if (tile.wreck && tile.revealed >= 1) {
+            const center = hexGrid.getHexCenter(c, r, offsetX, offsetY);
+            
+            // Oil slick & smoke
+            ctx.fillStyle = 'rgba(15, 10, 5, 0.65)';
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, hexGrid.radius * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Broken ship hull remnant
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(center.x - 14, center.y - 4);
+            ctx.lineTo(center.x + 8, center.y + 6);
+            ctx.lineTo(center.x + 14, center.y - 2);
+            ctx.stroke();
+
+            // Floating cargo crate icon / Salvage beacon
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('WRECK', center.x, center.y - 10);
+            ctx.fillText(`+${tile.wreck.scrap} SCRAP`, center.x, center.y + 18);
+          }
+        }
+      }
+    }
+
+    // Draws Enemy Ships and Sub-chasers
+    function drawEnemies(offsetX, offsetY) {
+      GameState.enemies.forEach(ship => {
+        const tile = GameState.tiles[ship.col][ship.row];
+        const center = hexGrid.getHexCenter(ship.col, ship.row, offsetX, offsetY);
+
+        if (tile.revealed === 2) {
+          // Fully Spotted Visual Silhouette
+          ctx.save();
+          ctx.translate(center.x, center.y);
+
+          if (ship.type === 'CONVOY') {
+            // Draw Cargo Merchant Vessel
+            ctx.fillStyle = '#64748b';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            // Hull
+            ctx.beginPath();
+            ctx.moveTo(-18, -5);
+            ctx.lineTo(14, -5);
+            ctx.lineTo(20, 0);
+            ctx.lineTo(14, 5);
+            ctx.lineTo(-18, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cargo crates & smokestack
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(-6, -3, 8, 6);
+            ctx.fillStyle = '#f87171';
+            ctx.fillRect(4, -2, 3, 4);
+
+            // Label & Health Bar
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(ship.name, 0, -11);
+
+            // Health Bar
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-16, 9, 32, 3);
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(-16, 9, (ship.hull / ship.maxHull) * 32, 3);
+
+          } else if (ship.type === 'DESTROYER') {
+            // Draw Hunter Destroyer with guns
+            ctx.fillStyle = '#334155';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(-22, -4);
+            ctx.lineTo(16, -4);
+            ctx.lineTo(24, 0);
+            ctx.lineTo(16, 4);
+            ctx.lineTo(-22, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Turrets
+            ctx.fillStyle = '#0ea5e9';
+            ctx.beginPath();
+            ctx.arc(-8, 0, 3, 0, Math.PI * 2);
+            ctx.arc(8, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('HUNTER ESCORT', 0, -11);
+
+            // Health Bar
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-18, 9, 36, 3);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(-18, 9, (ship.hull / ship.maxHull) * 36, 3);
+          }
+
+          ctx.restore();
+
+        } else if (tile.revealed === 1) {
+          // Sonar Ping Ghost Echo (Amber Question Mark)
+          ctx.save();
+          ctx.translate(center.x, center.y);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 12px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('?', 0, 0);
+          ctx.restore();
+        }
+      });
+    }
+
+    // Draws Player's Submarine with wake effects and depth visual cue
+    function drawPlayerSubmarine(offsetX, offsetY) {
+      const sub = GameState.sub;
+      const center = hexGrid.getHexCenter(sub.col, sub.row, offsetX, offsetY);
+
+      ctx.save();
+      ctx.translate(center.x, center.y);
+
+      // Foam Wake Particles behind submarine
+      if (Math.random() < 0.4) {
+        sub.wakeParticles.push({
+          x: -18 + (Math.random() - 0.5) * 6,
+          y: (Math.random() - 0.5) * 6,
+          radius: 2 + Math.random() * 4,
+          alpha: 0.6
+        });
+      }
+
+      // Render Wake
+      for (let i = sub.wakeParticles.length - 1; i >= 0; i--) {
+        const p = sub.wakeParticles[i];
+        p.alpha -= 0.015;
+        p.radius += 0.15;
+        p.x -= 0.3;
+        ctx.fillStyle = `rgba(224, 242, 254, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.alpha <= 0) sub.wakeParticles.splice(i, 1);
+      }
+
+      // Visual transparency based on Sub Depth
+      let subAlpha = 1.0;
+      let strokeColor = '#38ef7d';
+      let depthText = 'SURFACED';
+      if (sub.depth === DEPTH_PERISCOPE) {
+        subAlpha = 0.65;
+        strokeColor = '#06b6d4';
+        depthText = 'PERISCOPE';
+      } else if (sub.depth === DEPTH_DEEP) {
+        subAlpha = 0.35;
+        strokeColor = '#a855f7';
+        depthText = 'DEEP DIVE';
+      }
+
+      ctx.globalAlpha = subAlpha;
+
+      // Draw Sleek Submarine Silhouette
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 2;
+
+      // Sub Hull
+      ctx.beginPath();
+      ctx.moveTo(-20, -3.5);
+      ctx.lineTo(14, -3.5);
+      ctx.lineTo(24, 0); // Bow
+      ctx.lineTo(14, 3.5);
+      ctx.lineTo(-20, 3.5);
+      ctx.lineTo(-22, 0); // Stern
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Conning Tower
+      ctx.fillStyle = strokeColor;
+      ctx.fillRect(-2, -2, 6, 4);
+
+      // Sub Status Indicator
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = strokeColor;
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(depthText, 0, -12);
+
+      // Subtle Sonar detection ring if sub pinged
+      if (sub.revealedToEnemies) {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(0, 0, hexGrid.radius * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.restore();
+    }
+
+    // Dynamic Combat FX (Expanding Sonar, Torpedoes, Bombs, Explosions)
+    function drawAnimations(offsetX, offsetY) {
+      const anims = GameState.animations;
+
+      // 1. Sonar Waves
+      for (let i = anims.sonarPings.length - 1; i >= 0; i--) {
+        const ping = anims.sonarPings[i];
+        ping.radius += 3.5;
+        ping.alpha -= 0.02;
+
+        ctx.strokeStyle = `rgba(56, 239, 125, ${ping.alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ping.x, ping.y, ping.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (ping.alpha <= 0) anims.sonarPings.splice(i, 1);
+      }
+
+      // 2. Torpedo Trails
+      for (let i = anims.torpedoes.length - 1; i >= 0; i--) {
+        const t = anims.torpedoes[i];
+        t.progress += 0.035;
+        const curX = t.startX + (t.targetX - t.startX) * t.progress;
+        const curY = t.startY + (t.targetY - t.startY) * t.progress;
+
+        // Bubble Trail
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(t.startX, t.startY);
+        ctx.lineTo(curX, curY);
+        ctx.stroke();
+
+        // Torpedo Head
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(curX, curY, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (t.progress >= 1.0) {
+          // Detonation
+          spawnExplosion(t.targetX, t.targetY);
+          sound.playExplosion();
+          if (t.onHit) t.onHit();
+          anims.torpedoes.splice(i, 1);
+        }
+      }
+
+      // 3. Aircraft Flights (Recon / Bombers)
+      for (let i = anims.airScouts.length - 1; i >= 0; i--) {
+        const plane = anims.airScouts[i];
+        plane.progress += 0.03;
+        const px = plane.startX + (plane.targetX - plane.startX) * plane.progress;
+        const py = plane.startY + (plane.targetY - plane.startY) * plane.progress;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.fillStyle = plane.type === 'BOMBER' ? '#f43f5e' : '#06b6d4';
+
+        // Plane icon
+        ctx.beginPath();
+        ctx.moveTo(0, -8);
+        ctx.lineTo(12, 4);
+        ctx.lineTo(0, 2);
+        ctx.lineTo(-12, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        if (plane.progress >= 1.0) {
+          if (plane.onArrival) plane.onArrival();
+          anims.airScouts.splice(i, 1);
+        }
+      }
+
+      // 4. Explosions & Depth Charge Detonations
+      for (let i = anims.explosions.length - 1; i >= 0; i--) {
+        const exp = anims.explosions[i];
+        exp.life -= 0.03;
+
+        exp.particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * exp.life, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        if (exp.life <= 0) anims.explosions.splice(i, 1);
+      }
+    }
+
+    function spawnExplosion(x, y) {
+      const colors = ['#f59e0b', '#ef4444', '#ffffff', '#fdba74'];
+      const particles = [];
+      for (let i = 0; i < 28; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 3.5;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: 3 + Math.random() * 4,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        });
+      }
+      GameState.animations.explosions.push({ life: 1.0, particles });
+    }
+
+    // Displays Movement Range or Target Reticle Overlay
+    function drawActionOverlay(offsetX, offsetY) {
+      const sub = GameState.sub;
+      const hex = hexGrid;
+
+      if (GameState.selectedAction === 'MOVE') {
+        // Highlight neighboring reachable hexes
+        for (let r = 0; r < hex.rows; r++) {
+          for (let c = 0; c < hex.cols; c++) {
+            const dist = hex.distance(sub.col, sub.row, c, r);
+            if (dist === 1) {
+              const center = hex.getHexCenter(c, r, offsetX, offsetY);
+              ctx.strokeStyle = 'rgba(56, 239, 125, 0.45)';
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.arc(center.x, center.y, hex.radius * 0.45, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+        }
+      } else if (GameState.selectedAction === 'TORPEDO') {
+        // Highlight Torpedo Range (Radius 3)
+        for (let r = 0; r < hex.rows; r++) {
+          for (let c = 0; c < hex.cols; c++) {
+            const dist = hex.distance(sub.col, sub.row, c, r);
+            if (dist > 0 && dist <= 3) {
+              const center = hex.getHexCenter(c, r, offsetX, offsetY);
+              ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+              ctx.beginPath();
+              ctx.arc(center.x, center.y, hex.radius * 0.8, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+    }
+
+    /* ==========================================================================
+       6. INTERACTION & TACTICAL LOGIC
+       ========================================================================== */
+    // Mouse hover logic for tactical tooltips
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+
+      const totalGridWidth = GRID_COLS * hexGrid.width;
+      const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+      const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+      const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+
+      const target = hexGrid.getHexFromPixel(px, py, offsetX, offsetY);
+      GameState.hoveredHex = target;
+
+      const tooltip = document.getElementById('tileTooltip');
+      if (target) {
+        const tile = GameState.tiles[target.col][target.row];
+        const coordName = `${String.fromCharCode(65 + target.col)}${target.row + 1}`;
+        document.getElementById('tooltipTitle').textContent = `SECTOR ${coordName}`;
+
+        let statusText = '';
+        if (tile.revealed === 0) {
+          statusText = '<span class="text-slate-500">Uncharted (Fog of War)</span>';
+        } else {
+          // Check for units or wrecks
+          const unit = GameState.enemies.find(e => e.col === target.col && e.row === target.row);
+          if (unit && tile.revealed === 2) {
+            statusText = `<span class="text-rose-400 font-bold">${unit.name}</span><br>Hull: ${unit.hull}/${unit.maxHull}`;
+          } else if (unit && tile.revealed === 1) {
+            statusText = '<span class="text-amber-400 font-bold">Unidentified Sonar Contact</span>';
+          } else if (tile.wreck) {
+            statusText = `<span class="text-amber-300 font-bold">Sunken Wreckage</span><br>+${tile.wreck.scrap} Scrap, +${tile.wreck.intel} Intel`;
+          } else {
+            statusText = '<span class="text-cyan-400">Deep Water Sector (Clear)</span>';
+          }
+        }
+        document.getElementById('tooltipBody').innerHTML = statusText;
+        tooltip.style.left = `${e.clientX + 16}px`;
+        tooltip.style.top = `${e.clientY - 20}px`;
+        tooltip.classList.remove('hidden');
+      } else {
+        tooltip.classList.add('hidden');
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      GameState.hoveredHex = null;
+      document.getElementById('tileTooltip').classList.add('hidden');
+    });
+
+    // Primary Click Action Handler
+    canvas.addEventListener('click', e => {
+      if (!GameState.hoveredHex) return;
+      const { col, row } = GameState.hoveredHex;
+      handleHexClick(col, row);
+    });
+
+    function handleHexClick(col, row) {
+      const sub = GameState.sub;
+
+      if (GameState.selectedAction === 'MOVE') {
+        const dist = hexGrid.distance(sub.col, sub.row, col, row);
+        if (dist === 1) {
+          const moveCost = sub.depth === DEPTH_SURFACED ? 1 : 2;
+          if (GameState.currentAP >= moveCost) {
+            GameState.currentAP -= moveCost;
+            sub.col = col;
+            sub.row = row;
+            recalcFogOfWar();
+            addLog(`Sub moved to sector ${String.fromCharCode(65 + col)}${row + 1} [-${moveCost} AP]`);
+            updateUI();
+          } else {
+            showToast('Insufficient AP to navigate!');
+          }
+        }
+      } else if (GameState.selectedAction === 'TORPEDO') {
+        const dist = hexGrid.distance(sub.col, sub.row, col, row);
+        const torpedoAPCost = GameState.tech.fastReload ? 2 : 3;
+
+        if (dist <= 3) {
+          if (sub.torpedoes <= 0) {
+            showToast('Torpedo tubes empty!');
+            return;
+          }
+          if (GameState.currentAP < torpedoAPCost) {
+            showToast(`Need ${torpedoAPCost} AP for torpedo salvo!`);
+            return;
+          }
+
+          GameState.currentAP -= torpedoAPCost;
+          sub.torpedoes--;
+
+          // Launch torpedo animation
+          const totalGridWidth = GRID_COLS * hexGrid.width;
+          const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+          const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+          const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+
+          const startCenter = hexGrid.getHexCenter(sub.col, sub.row, offsetX, offsetY);
+          const targetCenter = hexGrid.getHexCenter(col, row, offsetX, offsetY);
+
+          sound.playTorpedoLaunch();
+          addLog(`Torpedo fired towards sector ${String.fromCharCode(65 + col)}${row + 1}`);
+
+          GameState.animations.torpedoes.push({
+            startX: startCenter.x,
+            startY: startCenter.y,
+            targetX: targetCenter.x,
+            targetY: targetCenter.y,
+            progress: 0,
+            onHit: () => {
+              applyDamageToTile(col, row, 50);
+            }
+          });
+
+          // Reset to move mode
+          GameState.selectedAction = 'MOVE';
+          updateUI();
+        }
+      } else if (GameState.selectedAction === 'RECON') {
+        if (GameState.currentAP < 3) {
+          showToast('Need 3 AP to call Air Recon!');
+          return;
+        }
+
+        GameState.currentAP -= 3;
+        addLog(`Catalina Recon sweep initiated over ${String.fromCharCode(65 + col)}${row + 1}`);
+
+        // Flight animation
+        const totalGridWidth = GRID_COLS * hexGrid.width;
+        const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+        const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+        const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+        const targetCenter = hexGrid.getHexCenter(col, row, offsetX, offsetY);
+
+        sound.playAirstrikeSound();
+
+        GameState.animations.airScouts.push({
+          startX: -40,
+          startY: targetCenter.y - 120,
+          targetX: targetCenter.x,
+          targetY: targetCenter.y,
+          progress: 0,
+          type: 'RECON',
+          onArrival: () => {
+            // Reveal 3x3 sector
+            for (let r = 0; r < hexGrid.rows; r++) {
+              for (let c = 0; c < hexGrid.cols; c++) {
+                if (hexGrid.distance(col, row, c, r) <= 1) {
+                  GameState.tiles[c][r].revealed = 2;
+                }
+              }
+            }
+            updateUI();
+          }
+        });
+
+        GameState.selectedAction = 'MOVE';
+        updateUI();
+      } else if (GameState.selectedAction === 'AIRSTRIKE') {
+        const apCost = GameState.tech.airSupportRadio ? 3 : 4;
+        if (GameState.currentAP < apCost) {
+          showToast(`Need ${apCost} AP for Bomber Airstrike!`);
+          return;
+        }
+
+        // Must be visually spotted
+        if (GameState.tiles[col][row].revealed !== 2) {
+          showToast('Target sector must be visually spotted first!');
+          return;
+        }
+
+        GameState.currentAP -= apCost;
+        addLog(`Bomber Squadron inbound on sector ${String.fromCharCode(65 + col)}${row + 1}`);
+
+        const totalGridWidth = GRID_COLS * hexGrid.width;
+        const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+        const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+        const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+        const targetCenter = hexGrid.getHexCenter(col, row, offsetX, offsetY);
+
+        sound.playAirstrikeSound();
+
+        GameState.animations.airScouts.push({
+          startX: -60,
+          startY: targetCenter.y - 150,
+          targetX: targetCenter.x,
+          targetY: targetCenter.y,
+          progress: 0,
+          type: 'BOMBER',
+          onArrival: () => {
+            spawnExplosion(targetCenter.x, targetCenter.y);
+            sound.playExplosion();
+            applyDamageToTile(col, row, 65);
+          }
+        });
+
+        GameState.selectedAction = 'MOVE';
+        updateUI();
+      }
+    }
+
+    // Resolves damage against ships in designated coordinate
+    function applyDamageToTile(col, row, damage) {
+      const targetIndex = GameState.enemies.findIndex(e => e.col === col && e.row === row);
+      if (targetIndex !== -1) {
+        const target = GameState.enemies[targetIndex];
+        target.hull -= damage;
+        addLog(`DIRECT HIT on ${target.name}! (-${damage} HP)`);
+
+        if (target.hull <= 0) {
+          addLog(`VESSEL SUNK: ${target.name} slips beneath the waves!`);
+          // Spawn wreckage
+          GameState.tiles[col][row].wreck = {
+            scrap: target.type === 'CONVOY' ? 45 : 70,
+            intel: target.type === 'CONVOY' ? 25 : 45
+          };
+
+          if (target.type === 'CONVOY') {
+            GameState.convoysSunk++;
+            checkVictory();
+          }
+
+          GameState.enemies.splice(targetIndex, 1);
+        }
+      } else {
+        addLog(`Salvo missed: Sector ${String.fromCharCode(65 + col)}${row + 1} was vacant.`);
+      }
+      updateUI();
+    }
+
+    /* ==========================================================================
+       7. BUTTON CONTROLS & SUBMARINE COMMANDS
+       ========================================================================== */
+    // Active Sonar Ping
+    document.getElementById('btnPing').addEventListener('click', () => {
+      if (GameState.currentAP < 2) {
+        showToast('Need 2 AP to ping Active Sonar!');
+        return;
+      }
+      GameState.currentAP -= 2;
+      sound.playSonarPing();
+      addLog('ACTIVE SONAR PING EMITTED! Sector contacts revealed.');
+
+      // Mark player as revealed to enemy hunters
+      GameState.sub.revealedToEnemies = true;
+
+      const sub = GameState.sub;
+      const totalGridWidth = GRID_COLS * hexGrid.width;
+      const totalGridHeight = GRID_ROWS * hexGrid.vertDist;
+      const offsetX = Math.max(20, (canvas.width - totalGridWidth) / 2);
+      const offsetY = Math.max(30, (canvas.height - totalGridHeight) / 2);
+      const subCenter = hexGrid.getHexCenter(sub.col, sub.row, offsetX, offsetY);
+
+      GameState.animations.sonarPings.push({
+        x: subCenter.x,
+        y: subCenter.y,
+        radius: 10,
+        alpha: 1.0
+      });
+
+      // Reveal units in 4 hex radius as sonar blips (state 1)
+      for (let r = 0; r < hexGrid.rows; r++) {
+        for (let c = 0; c < hexGrid.cols; c++) {
+          const dist = hexGrid.distance(sub.col, sub.row, c, r);
+          if (dist <= 4 && GameState.tiles[c][r].revealed === 0) {
+            GameState.tiles[c][r].revealed = 1;
+          }
+        }
+      }
+
+      updateUI();
+    });
+
+    // Depth Changes
+    document.getElementById('btnSurface').addEventListener('click', () => {
+      setSubDepth(DEPTH_SURFACED, 1);
+    });
+
+    document.getElementById('btnPeriscope').addEventListener('click', () => {
+      setSubDepth(DEPTH_PERISCOPE, 2);
+    });
+
+    document.getElementById('btnDive').addEventListener('click', () => {
+      setSubDepth(DEPTH_DEEP, 2);
+    });
+
+    function setSubDepth(newDepth, cost) {
+      if (GameState.sub.depth === newDepth) return;
+      if (GameState.currentAP < cost) {
+        showToast(`Need ${cost} AP to change depth!`);
+        return;
+      }
+      GameState.currentAP -= cost;
+      GameState.sub.depth = newDepth;
+      sound.playMechanicalClick();
+      recalcFogOfWar();
+      addLog(`Sub altered depth to ${newDepth === 0 ? 'SURFACED' : newDepth === 1 ? 'PERISCOPE' : 'DEEP DIVE'}`);
+      updateUI();
+    }
+
+    // Action Mode Selectors
+    document.getElementById('btnTorpedo').addEventListener('click', () => {
+      GameState.selectedAction = 'TORPEDO';
+      showToast('Select a target sector within range 3');
+    });
+
+    document.getElementById('btnRecon').addEventListener('click', () => {
+      GameState.selectedAction = 'RECON';
+      showToast('Click sector to dispatch Air Recon sweep');
+    });
+
+    document.getElementById('btnAirstrike').addEventListener('click', () => {
+      GameState.selectedAction = 'AIRSTRIKE';
+      showToast('Click a spotted enemy ship for Bomber strike');
+    });
+
+    // Salvage Action
+    document.getElementById('btnSalvage').addEventListener('click', () => {
+      const sub = GameState.sub;
+      const currentTile = GameState.tiles[sub.col][sub.row];
+
+      if (!currentTile.wreck) {
+        showToast('No sunken wreckage in this sector!');
+        return;
+      }
+      if (sub.depth !== DEPTH_SURFACED) {
+        showToast('Submarine must be SURFACED to salvage wreckage!');
+        return;
+      }
+      if (GameState.currentAP < 2) {
+        showToast('Need 2 AP to salvage!');
+        return;
+      }
+
+      GameState.currentAP -= 2;
+      GameState.scrap += currentTile.wreck.scrap;
+      GameState.intel += currentTile.wreck.intel;
+      addLog(`SALVAGED: +${currentTile.wreck.scrap} Scrap, +${currentTile.wreck.intel} Intel recovered!`);
+      sound.playMechanicalClick();
+      currentTile.wreck = null;
+      updateUI();
+    });
+
+    /* ==========================================================================
+       8. TURN MANAGEMENT & ENEMY AI
+       ========================================================================== */
+    document.getElementById('btnEndTurn').addEventListener('click', () => {
+      executeEnemyTurn();
+    });
+
+    function executeEnemyTurn() {
+      addLog('--- ENEMY TACTICAL PHASE ---');
+
+      const sub = GameState.sub;
+
+      // 1. Enemy Movement & Hunter Logic
+      GameState.enemies.forEach(enemy => {
+        if (enemy.type === 'CONVOY') {
+          // Convoys sail slowly across the map
+          const nextCol = enemy.col + enemy.dir;
+          if (nextCol >= 0 && nextCol < GRID_COLS) {
+            enemy.col = nextCol;
+          } else {
+            enemy.dir *= -1; // Change tack
+          }
+        } else if (enemy.type === 'DESTROYER') {
+          // Destroyer hunts player
+          const distToSub = hexGrid.distance(enemy.col, enemy.row, sub.col, sub.row);
+
+          // If sub is surfaced or alerted, destroyer closes in
+          if (sub.depth === DEPTH_SURFACED || sub.revealedToEnemies || distToSub <= 2) {
+            enemy.alert = true;
+          }
+
+          if (enemy.alert) {
+            // Move closer to player
+            const deltaCol = Math.sign(sub.col - enemy.col);
+            const deltaRow = Math.sign(sub.row - enemy.row);
+            if (deltaCol !== 0 && enemy.col + deltaCol >= 0 && enemy.col + deltaCol < GRID_COLS) {
+              enemy.col += deltaCol;
+            } else if (deltaRow !== 0 && enemy.row + deltaRow >= 0 && enemy.row + deltaRow < GRID_ROWS) {
+              enemy.row += deltaRow;
+            }
+
+            // Depth Charge Attack if adjacent
+            const newDist = hexGrid.distance(enemy.col, enemy.row, sub.col, sub.row);
+            if (newDist <= 1) {
+              addLog(`WARNING: ${enemy.name} deploying Depth Charges!`);
+              sound.playExplosion();
+
+              // Damage depends on player depth
+              let damage = 35;
+              if (sub.depth === DEPTH_DEEP) damage = 18; // Absorbed by deep sea
+              if (sub.depth === DEPTH_SURFACED) damage = 45;
+
+              sub.hull -= damage;
+              addLog(`DEPTH CHARGE CONCUSSION: Hull Integrity -${damage}%`);
+
+              if (sub.hull <= 0) {
+                triggerGameOver(false);
+                return;
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Resource & Oxygen / Battery management
+      if (sub.depth === DEPTH_SURFACED) {
+        sub.battery = Math.min(sub.maxBattery, sub.battery + 35);
+      } else if (sub.depth === DEPTH_PERISCOPE) {
+        if (GameState.tech.snorkel) {
+          sub.battery = Math.min(sub.maxBattery, sub.battery + 15);
+        } else {
+          sub.battery = Math.max(0, sub.battery - 15);
+        }
+      } else if (sub.depth === DEPTH_DEEP) {
+        sub.battery = Math.max(0, sub.battery - 25);
+      }
+
+      // Reload 1 torpedo if surfaced
+      if (sub.depth === DEPTH_SURFACED && sub.torpedoes < sub.maxTorpedoes) {
+        sub.torpedoes++;
+        addLog('Torpedo tube reloaded.');
+      }
+
+      // Battery depletion consequence
+      if (sub.battery <= 0) {
+        addLog('EMERGENCY: Battery depleted! Forced emergency surfacing.');
+        sub.depth = DEPTH_SURFACED;
+        sub.hull -= 15;
+      }
+
+      // Reset alert & turn counters
+      sub.revealedToEnemies = false;
+      GameState.turn++;
+      GameState.currentAP = GameState.maxAP;
+
+      if (GameState.turn > GameState.maxTurns) {
+        triggerGameOver(false, 'Turn limit reached: Allied task force escaped.');
+        return;
+      }
+
+      recalcFogOfWar();
+      updateUI();
+    }
+
+    function checkVictory() {
+      if (GameState.convoysSunk >= GameState.targetConvoys) {
+        triggerGameOver(true);
+      }
+    }
+
+    function triggerGameOver(victory, customDesc) {
+      const modal = document.getElementById('endGameModal');
+      const title = document.getElementById('endGameTitle');
+      const desc = document.getElementById('endGameDesc');
+      const icon = document.getElementById('endGameIcon');
+
+      if (victory) {
+        title.textContent = 'MISSION ACCOMPLISHED';
+        title.className = 'text-xl font-bold tracking-wider uppercase text-emerald-400';
+        desc.textContent = 'All priority Allied merchant convoys have been successfully intercepted. The Atlantic supply line is crippled.';
+        icon.className = 'w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-emerald-950 text-emerald-400 border border-emerald-500';
+      } else {
+        title.textContent = 'BOAT DESTROYED';
+        title.className = 'text-xl font-bold tracking-wider uppercase text-rose-500';
+        desc.textContent = customDesc || 'The U-Boat was crushed by depth charge concussion. The Atlantic claims another crew.';
+        icon.className = 'w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-rose-950 text-rose-400 border border-rose-500';
+      }
+
+      document.getElementById('endTurns').textContent = GameState.turn;
+      document.getElementById('endScrap').textContent = GameState.scrap;
+      modal.classList.remove('hidden');
+    }
+
+    document.getElementById('btnRestartGame').addEventListener('click', () => {
+      location.reload();
+    });
+
+    /* ==========================================================================
+       9. TECH ENGINEERING UPGRADES MODAL
+       ========================================================================== */
+    const UPGRADES_DB = [
+      {
+        id: 'snorkel',
+        name: 'Electric Induction Snorkel',
+        costScrap: 40,
+        costIntel: 20,
+        desc: 'Recharges submarine battery even while at Periscope Depth.',
+        icon: 'ph-leaf'
+      },
+      {
+        id: 'acousticHoming',
+        name: 'Zaunkönig Homing Torpedoes',
+        costScrap: 50,
+        costIntel: 35,
+        desc: 'Torpedoes self-guide toward enemy propeller cavitation.',
+        icon: 'ph-navigation-arrow'
+      },
+      {
+        id: 'anechoicTiles',
+        name: 'Alberich Anechoic Rubber Tiles',
+        costScrap: 60,
+        costIntel: 30,
+        desc: 'Reduces enemy Destroyer active sonar detection radius.',
+        icon: 'ph-shield-check'
+      },
+      {
+        id: 'fastReload',
+        name: 'Hydraulic Torpedo Rammer',
+        costScrap: 45,
+        costIntel: 25,
+        desc: 'Reduces Torpedo action AP cost from 3 down to 2 AP.',
+        icon: 'ph-lightning'
+      },
+      {
+        id: 'airSupportRadio',
+        name: 'High-Frequency Enigma Radio',
+        costScrap: 35,
+        costIntel: 40,
+        desc: 'Reduces Bomber Airstrike call-in cost from 4 down to 3 AP.',
+        icon: 'ph-broadcast'
+      }
+    ];
+
+    function renderTechTree() {
+      const container = document.getElementById('techUpgradeList');
+      container.innerHTML = '';
+
+      document.getElementById('modalScrap').textContent = GameState.scrap;
+      document.getElementById('modalIntel').textContent = GameState.intel;
+
+      UPGRADES_DB.forEach(upg => {
+        const isUnlocked = GameState.tech[upg.id];
+        const canAfford = GameState.scrap >= upg.costScrap && GameState.intel >= upg.costIntel;
+
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-lg border flex flex-col justify-between ${
+          isUnlocked 
+            ? 'bg-emerald-950/40 border-emerald-500/60' 
+            : canAfford 
+              ? 'bg-slate-950 border-amber-500/50' 
+              : 'bg-slate-950/60 border-slate-800 opacity-60'
+        }`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-xs ${isUnlocked ? 'text-emerald-400' : 'text-slate-200'}">${upg.name}</span>
+              <i class="ph ${upg.icon} text-base ${isUnlocked ? 'text-emerald-400' : 'text-amber-400'}"></i>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-2">${upg.desc}</p>
+          </div>
+          <div class="flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px] font-mono">
+            <span class="text-slate-400">${upg.costScrap} Scrap | ${upg.costIntel} Intel</span>
+            <button class="upgrade-btn px-2.5 py-1 rounded font-bold uppercase ${
+              isUnlocked 
+                ? 'bg-slate-800 text-emerald-400 cursor-default' 
+                : canAfford 
+                  ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 cursor-pointer' 
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            }" data-id="${upg.id}" ${isUnlocked || !canAfford ? 'disabled' : ''}>
+              ${isUnlocked ? 'INSTALLED' : 'RESEARCH'}
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Bind button events
+      container.querySelectorAll('.upgrade-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const upgId = e.target.getAttribute('data-id');
+          purchaseUpgrade(upgId);
+        });
+      });
+    }
+
+    function purchaseUpgrade(id) {
+      const upg = UPGRADES_DB.find(u => u.id === id);
+      if (!upg || GameState.tech[id]) return;
+
+      if (GameState.scrap >= upg.costScrap && GameState.intel >= upg.costIntel) {
+        GameState.scrap -= upg.costScrap;
+        GameState.intel -= upg.costIntel;
+        GameState.tech[id] = true;
+        sound.playMechanicalClick();
+        addLog(`TECH UNLOCKED: ${upg.name} installed!`);
+        renderTechTree();
+        updateUI();
+      }
+    }
+
+    document.getElementById('openTechTreeBtn').addEventListener('click', () => {
+      renderTechTree();
+      document.getElementById('techModal').classList.remove('hidden');
+    });
+
+    document.getElementById('closeTechModal').addEventListener('click', () => {
+      document.getElementById('techModal').classList.add('hidden');
+    });
+
+    // Briefing Modal handlers
+    document.getElementById('briefingBtn').addEventListener('click', () => {
+      document.getElementById('briefingModal').classList.remove('hidden');
+    });
+    document.getElementById('closeBriefingModal').addEventListener('click', () => {
+      document.getElementById('briefingModal').classList.add('hidden');
+    });
+    document.getElementById('btnDismissBriefing').addEventListener('click', () => {
+      document.getElementById('briefingModal').classList.add('hidden');
+    });
+
+    /* ==========================================================================
+       10. UI REFRESH & HUD SYNCHRONIZATION
+       ========================================================================== */
+    function updateUI() {
+      // 1. AP Counters and Pips
+      document.getElementById('turnDisplay').textContent = GameState.turn;
+      document.getElementById('apCounter').textContent = `${GameState.currentAP}/${GameState.maxAP}`;
+      
+      const apContainer = document.getElementById('apSegments');
+      apContainer.innerHTML = '';
+      for (let i = 0; i < GameState.maxAP; i++) {
+        const pip = document.createElement('span');
+        pip.className = `inline-block w-2 h-3.5 rounded-sm ${
+          i < GameState.currentAP ? 'bg-emerald-400 shadow-[0_0_6px_#38ef7d]' : 'bg-slate-800'
+        }`;
+        apContainer.appendChild(pip);
+      }
+
+      // 2. Resources
+      document.getElementById('scrapDisplay').textContent = GameState.scrap;
+      document.getElementById('intelDisplay').textContent = GameState.intel;
+      document.getElementById('convoyKillsDisplay').textContent = `${GameState.convoysSunk}/3 SUNK`;
+
+      // 3. Sub Status
+      const sub = GameState.sub;
+      document.getElementById('hullPercent').textContent = `${sub.hull}%`;
+      document.getElementById('hullBar').style.width = `${sub.hull}%`;
+
+      document.getElementById('batteryPercent').textContent = `${sub.battery}%`;
+      document.getElementById('batteryBar').style.width = `${sub.battery}%`;
+
+      document.getElementById('torpedoCount').textContent = `${sub.torpedoes} / ${sub.maxTorpedoes}`;
+      document.getElementById('torpedoBar').style.width = `${(sub.torpedoes / sub.maxTorpedoes) * 100}%`;
+
+      // Depth UI Badges & Buttons active styling
+      const depthBadge = document.getElementById('depthBadge');
+      const bSurface = document.getElementById('btnSurface');
+      const bPeriscope = document.getElementById('btnPeriscope');
+      const bDive = document.getElementById('btnDive');
+
+      [bSurface, bPeriscope, bDive].forEach(b => {
+        b.className = 'px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition text-slate-400 hover:text-slate-200 hover:bg-slate-800';
+      });
+
+      if (sub.depth === DEPTH_SURFACED) {
+        depthBadge.textContent = 'SURFACED';
+        depthBadge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-600';
+        bSurface.className = 'px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition border bg-emerald-900/80 text-emerald-200 border-emerald-500 shadow';
+      } else if (sub.depth === DEPTH_PERISCOPE) {
+        depthBadge.textContent = 'PERISCOPE';
+        depthBadge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-600';
+        bPeriscope.className = 'px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition border bg-cyan-900/80 text-cyan-200 border-cyan-500 shadow';
+      } else {
+        depthBadge.textContent = 'DEEP DIVE';
+        depthBadge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-600';
+        bDive.className = 'px-2.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition border bg-purple-900/80 text-purple-200 border-purple-500 shadow';
+      }
+
+      // Salvage Button Availability
+      const currentTile = GameState.tiles[sub.col][sub.row];
+      const btnSalvage = document.getElementById('btnSalvage');
+      if (currentTile.wreck && sub.depth === DEPTH_SURFACED) {
+        btnSalvage.className = 'px-3 py-2 bg-amber-950/80 hover:bg-amber-900 border border-amber-500 text-amber-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-md animate-pulse cursor-pointer';
+      } else {
+        btnSalvage.className = 'px-3 py-2 bg-slate-950 hover:bg-amber-950/60 border border-amber-600/30 text-amber-400/50 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition opacity-60 cursor-not-allowed';
+      }
+
+      // Update Mini Radar Scope Blips
+      updateMiniRadar();
+    }
+
+    function updateMiniRadar() {
+      const blipsContainer = document.getElementById('radarBlips');
+      blipsContainer.innerHTML = '';
+
+      const sub = GameState.sub;
+      GameState.enemies.forEach(e => {
+        // Distance relative to sub
+        const dCol = (e.col - sub.col) / GRID_COLS;
+        const dRow = (e.row - sub.row) / GRID_ROWS;
+
+        // Position on radar
+        const px = 88 + dCol * 70;
+        const py = 88 + dRow * 70;
+
+        const tile = GameState.tiles[e.col][e.row];
+        if (tile.revealed >= 1) {
+          const blip = document.createElement('div');
+          blip.className = `absolute w-2 h-2 rounded-full ${e.type === 'DESTROYER' ? 'bg-rose-500' : 'bg-amber-400'}`;
+          blip.style.left = `${px}px`;
+          blip.style.top = `${py}px`;
+          blipsContainer.appendChild(blip);
+        }
+      });
+    }
+
+    function addLog(msg) {
+      const log = document.getElementById('battleLog');
+      const item = document.createElement('div');
+      item.className = 'text-slate-300 border-l border-emerald-500/50 pl-1.5 py-0.5';
+      item.innerHTML = `<span class="text-slate-500">[T+${GameState.turn}]</span> ${msg}`;
+      log.prepend(item);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('actionToast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2500);
+    }
+
+    // Audio SFX Toggle
+    document.getElementById('audioToggleBtn').addEventListener('click', () => {
+      sound.muted = !sound.muted;
+      const icon = document.getElementById('audioIcon');
+      if (sound.muted) {
+        icon.className = 'ph ph-speaker-slash text-rose-400';
+      } else {
+        icon.className = 'ph ph-speaker-high text-emerald-400';
+        sound.playSonarPing();
+      }
+    });
+
+    /* ==========================================================================
+       11. LIFECYCLE STARTUP
+       ========================================================================== */
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      initTiles();
+      updateUI();
+      addLog('U-96 entered Atlantic Sector 4. Mission objective: Intercept convoys.');
+      requestAnimationFrame(render);
+    });
+  </script>
+</body>
+</html>
