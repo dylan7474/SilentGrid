@@ -547,6 +547,7 @@
       intel: 20,
       convoysSunk: 0,
       targetConvoys: 3,
+      over: false,
       selectedAction: 'MOVE', // 'MOVE', 'TORPEDO', 'RECON', 'AIRSTRIKE'
 
       sub: {
@@ -610,6 +611,7 @@
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
+      frameCamera();
 
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
@@ -648,8 +650,20 @@
       container.addEventListener('click', onCanvasClick);
     }
 
+    // Shrink the view a little and slide it left so the radar panel never covers playable hexes
+    function frameCamera() {
+      const W = container.clientWidth, H = container.clientHeight;
+      if (W >= 900) {
+        const zoom = 0.8, fw = W * zoom, fh = H * zoom;
+        camera.setViewOffset(fw, fh, (fw - W) / 2 + 25, (fh - H) / 2 + 15, W, H);
+      } else {
+        camera.clearViewOffset();
+      }
+    }
+
     function onWindowResize() {
       camera.aspect = container.clientWidth / container.clientHeight;
+      frameCamera();
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     }
@@ -659,7 +673,7 @@
        ========================================================================== */
     function buildStormyOcean() {
       // 120x120 units stormy ocean plane
-      oceanGeometry = new THREE.PlaneGeometry(160, 160, 90, 90);
+      oceanGeometry = new THREE.PlaneGeometry(260, 260, 110, 110);
       oceanGeometry.rotateX(-Math.PI / 2);
 
       // Store initial heights for sine wave displacement
@@ -1134,10 +1148,32 @@
     }
 
     function executeAction(col, row) {
+      if (GameState.over) return;
+      runAction(col, row);
+      // A targeting click always ends targeting mode, whether or not it succeeded
+      if (GameState.selectedAction !== 'MOVE') {
+        GameState.selectedAction = 'MOVE';
+        updateUI();
+      }
+    }
+
+    function enemyAt(col, row, except) {
+      return GameState.enemies.find(e => e !== except && e.col === col && e.row === row);
+    }
+
+    function runAction(col, row) {
       const sub = GameState.sub;
 
       if (GameState.selectedAction === 'MOVE') {
         const dist = hexDistance(sub.col, sub.row, col, row);
+        if (dist !== 1) {
+          showToast('Move one hex at a time: click an adjacent sector');
+          return;
+        }
+        if (enemyAt(col, row)) {
+          showToast('Sector occupied by an enemy vessel!');
+          return;
+        }
         if (dist === 1) {
           const moveCost = sub.depth === DEPTH_SURFACED ? 1 : 2;
           if (GameState.currentAP >= moveCost) {
@@ -1161,6 +1197,10 @@
         const dist = hexDistance(sub.col, sub.row, col, row);
         const cost = GameState.tech.fastReload ? 2 : 3;
 
+        if (dist > 3) {
+          showToast('Target out of torpedo range (3 hexes)');
+          return;
+        }
         if (dist <= 3) {
           if (sub.torpedoes <= 0) {
             showToast('Tubes empty! Surface to reload.');
@@ -1178,7 +1218,7 @@
 
           // 3D Torpedo Wake Animation
           spawnTorpedoFX(sub.col, sub.row, col, row, () => {
-            damageTile(col, row, 55);
+            damageTile(col, row, GameState.tech.heavyTorps ? 70 : 55);
           });
 
           GameState.selectedAction = 'MOVE';
@@ -1280,9 +1320,10 @@
       torp.position.set(start.x, 0.2, start.z);
       dynamicFXGroup.add(torp);
 
-      let t = 0;
+      let t = 0, last = performance.now();
       function anim() {
-        t += 0.04;
+        const now = performance.now(), k = Math.min(4, (now - last) / 16.667); last = now;
+        t += 0.04 * k;
         torp.position.x = start.x + (end.x - start.x) * t;
         torp.position.z = start.z + (end.z - start.z) * t;
 
@@ -1316,9 +1357,10 @@
       plane.position.set(-35, 14, target.z - 20);
       dynamicFXGroup.add(plane);
 
-      let p = 0;
+      let p = 0, last = performance.now();
       function fly() {
-        p += 0.025;
+        const now = performance.now(), k = Math.min(4, (now - last) / 16.667); last = now;
+        p += 0.025 * k;
         plane.position.x = -35 + (target.x + 35) * p;
         plane.position.z = (target.z - 20) + 20 * p;
 
@@ -1340,11 +1382,12 @@
       plume.position.set(x, 2.0, z);
       dynamicFXGroup.add(plume);
 
-      let scale = 1.0;
+      let scale = 1.0, last = performance.now();
       function fade() {
-        scale += 0.08;
+        const now = performance.now(), k = Math.min(4, (now - last) / 16.667); last = now;
+        scale += 0.08 * k;
         plume.scale.set(scale, scale * 1.2, scale);
-        plume.material.opacity -= 0.04;
+        plume.material.opacity -= 0.04 * k;
         if (plume.material.opacity > 0) {
           requestAnimationFrame(fade);
         } else {
@@ -1364,6 +1407,7 @@
         return;
       }
       GameState.currentAP -= cost;
+      GameState.selectedAction = 'MOVE';
       GameState.sub.depth = newDepth;
       sound.playClick();
 
@@ -1397,6 +1441,7 @@
         return;
       }
       GameState.currentAP -= 2;
+      GameState.selectedAction = 'MOVE';
       sound.playSonarPing();
       addLog('ACTIVE SONAR PING TRANSMITTED! Echo returns incoming.');
 
@@ -1412,11 +1457,12 @@
       ring.position.set(subPos.x, 0.4, subPos.z);
       dynamicFXGroup.add(ring);
 
-      let rScale = 1;
+      let rScale = 1, last = performance.now();
       function expand() {
-        rScale += 0.8;
+        const now = performance.now(), k = Math.min(4, (now - last) / 16.667); last = now;
+        rScale += 0.8 * k;
         ring.scale.set(rScale, 1, rScale);
-        ring.material.opacity -= 0.025;
+        ring.material.opacity -= 0.025 * k;
         if (ring.material.opacity > 0) {
           requestAnimationFrame(expand);
         } else {
@@ -1490,13 +1536,15 @@
     });
 
     function executeEnemyTurn() {
+      if (GameState.over) return;
+      GameState.selectedAction = 'MOVE';
       addLog('--- ALLIED TASK FORCE PHASE ---');
       const sub = GameState.sub;
 
-      GameState.enemies.forEach(enemy => {
+      for (const enemy of GameState.enemies) {
         if (enemy.type === 'CONVOY') {
           const nextCol = enemy.col + enemy.dir;
-          if (nextCol >= 0 && nextCol < GRID_COLS) {
+          if (nextCol >= 0 && nextCol < GRID_COLS && !enemyAt(nextCol, enemy.row, enemy) && !(sub.col === nextCol && sub.row === enemy.row)) {
             enemy.col = nextCol;
           } else {
             enemy.dir *= -1;
@@ -1506,18 +1554,27 @@
 
         } else if (enemy.type === 'DESTROYER') {
           const dist = hexDistance(enemy.col, enemy.row, sub.col, sub.row);
-          if (sub.depth === DEPTH_SURFACED || sub.revealedToEnemies || dist <= 2) {
-            enemy.alert = true;
-          }
+          // Track the sub only while it is surfaced, pinged, or close; a deep boat can slip away
+          enemy.alert = sub.depth === DEPTH_SURFACED || sub.revealedToEnemies || dist <= 2;
 
           if (enemy.alert) {
-            const dc = Math.sign(sub.col - enemy.col);
-            const dr = Math.sign(sub.row - enemy.row);
-            if (dc !== 0 && enemy.col + dc >= 0 && enemy.col + dc < GRID_COLS) enemy.col += dc;
-            else if (dr !== 0 && enemy.row + dr >= 0 && enemy.row + dr < GRID_ROWS) enemy.row += dr;
-
-            const p = getHexWorldPos(enemy.col, enemy.row);
-            enemy.mesh.position.set(p.x, 0.2, p.z);
+            // Step to the neighbouring free hex that closes the distance most
+            let best = null, bestD = dist;
+            for (let dc = -1; dc <= 1; dc++) {
+              for (let dr = -1; dr <= 1; dr++) {
+                if (!dc && !dr) continue;
+                const nc = enemy.col + dc, nr = enemy.row + dr;
+                if (nc < 0 || nc >= GRID_COLS || nr < 0 || nr >= GRID_ROWS) continue;
+                if ((nc === sub.col && nr === sub.row) || enemyAt(nc, nr, enemy)) continue;
+                const d = hexDistance(nc, nr, sub.col, sub.row);
+                if (d < bestD) { bestD = d; best = [nc, nr]; }
+              }
+            }
+            if (best) {
+              enemy.col = best[0]; enemy.row = best[1];
+              const p = getHexWorldPos(enemy.col, enemy.row);
+              enemy.mesh.position.set(p.x, 0.2, p.z);
+            }
 
             const newDist = hexDistance(enemy.col, enemy.row, sub.col, sub.row);
             if (newDist <= 1) {
@@ -1528,17 +1585,18 @@
               if (sub.depth === DEPTH_DEEP) dmg = 18;
               if (sub.depth === DEPTH_SURFACED) dmg = 45;
 
-              sub.hull -= dmg;
+              sub.hull = Math.max(0, sub.hull - dmg);
               addLog(`CONCUSSION DAMAGE: Hull -${dmg}%`);
 
               if (sub.hull <= 0) {
                 triggerGameOver(false);
+                updateUI();
                 return;
               }
             }
           }
         }
-      });
+      }
 
       // Battery & O2 upkeep
       if (sub.depth === DEPTH_SURFACED) {
@@ -1573,6 +1631,8 @@
     }
 
     function triggerGameOver(win, msg) {
+      if (GameState.over) return;
+      GameState.over = true;
       const modal = document.getElementById('endGameModal');
       const title = document.getElementById('endGameTitle');
       const desc = document.getElementById('endGameDesc');
@@ -1582,10 +1642,12 @@
         title.textContent = 'PATROL VICTORIOUS';
         title.className = 'text-xl font-bold tracking-wider uppercase text-amber-400';
         desc.textContent = 'All Allied merchant supply convoys have been sent to the ocean floor. The wolfpack controls this grid.';
+        icon.innerHTML = '<i class="ph ph-trophy"></i>';
         icon.className = 'w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-amber-950 text-amber-400 border border-amber-500';
       } else {
         title.textContent = 'BOAT DESTROYED';
         title.className = 'text-xl font-bold tracking-wider uppercase text-rose-500';
+        icon.innerHTML = '<i class="ph ph-skull"></i>';
         desc.textContent = msg || 'The U-Boat was crushed under depth charge concussion. The Atlantic claims another crew.';
         icon.className = 'w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl bg-rose-950 text-rose-400 border border-rose-500';
       }
@@ -1601,7 +1663,7 @@
       { id: 'snorkel', name: 'Electric Snorkel', scrap: 40, intel: 20, desc: 'Recharge batteries at Periscope Depth.', icon: 'ph-leaf' },
       { id: 'fastReload', name: 'Hydraulic Rammer', scrap: 45, intel: 25, desc: 'Reduces Torpedo AP cost from 3 to 2.', icon: 'ph-lightning' },
       { id: 'airSupportRadio', name: 'Enigma Air Radio', scrap: 35, intel: 40, desc: 'Reduces Bomber strike cost from 4 to 3 AP.', icon: 'ph-broadcast' },
-      { id: 'heavyTorps', name: 'Zaunkönig Homing Heads', scrap: 55, intel: 35, desc: 'Torpedoes ignore obstacles and deal +15 damage.', icon: 'ph-crosshair' }
+      { id: 'heavyTorps', name: 'Zaunkönig Homing Heads', scrap: 55, intel: 35, desc: 'Torpedoes deal +15 damage (55 to 70).', icon: 'ph-crosshair' }
     ];
 
     function renderTechTree() {
